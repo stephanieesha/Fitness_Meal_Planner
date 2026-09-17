@@ -1,0 +1,17 @@
+[
+  {"name": "Jollof rice with chicken", "region": "nigeria", "meal_type": "lunch", "calories": 550, "protein_g": 28, "carbs_g": 65, "fat_g": 18, "serving_desc": "1 plate"},
+  {"name": "Jollof rice with chicken", "region": "nigeria", "meal_type": "dinner", "calories": 550, "protein_g": 28, "carbs_g": 65, "fat_g": 18, "serving_desc": "1 plate"},
+  {"name": "Egusi soup with pounded yam", "region": "nigeria", "meal_type": "lunch", "calories": 620, "protein_g": 24, "carbs_g": 70, "fat_g": 26, "serving_desc": "1 bowl soup + 1 wrap pounded yam"},
+  {"name": "Egusi soup with pounded yam", "region": "nigeria", "meal_type": "dinner", "calories": 620, "protein_g": 24, "carbs_g": 70, "fat_g": 26, "serving_desc": "1 bowl soup + 1 wrap pounded yam"},
+  {"name": "Moi moi with pap", "region": "nigeria", "meal_type": "breakfast", "calories": 320, "protein_g": 16, "carbs_g": 38, "fat_g": 10, "serving_desc": "2 wraps moi moi + 1 cup pap"},
+  {"name": "Akara and bread", "region": "nigeria", "meal_type": "breakfast", "calories": 380, "protein_g": 14, "carbs_g": 48, "fat_g": 14, "serving_desc": "4 akara balls + 2 slices bread"},
+  {"name": "Beans and plantain", "region": "nigeria", "meal_type": "lunch", "calories": 480, "protein_g": 18, "carbs_g": 72, "fat_g": 12, "serving_desc": "1 plate"},
+  {"name": "Yam and egg sauce", "region": "nigeria", "meal_type": "breakfast", "calories": 410, "protein_g": 16, "carbs_g": 55, "fat_g": 14, "serving_desc": "3 slices boiled yam + 2 eggs sauce"},
+  {"name": "Efo riro with rice", "region": "nigeria", "meal_type": "dinner", "calories": 500, "protein_g": 20, "carbs_g": 60, "fat_g": 18, "serving_desc": "1 plate"},
+  {"name": "Ogbono soup with fufu", "region": "nigeria", "meal_type": "lunch", "calories": 560, "protein_g": 22, "carbs_g": 65, "fat_g": 22, "serving_desc": "1 bowl soup + 1 wrap fufu"},
+  {"name": "Pepper soup with fish", "region": "nigeria", "meal_type": "dinner", "calories": 340, "protein_g": 32, "carbs_g": 12, "fat_g": 16, "serving_desc": "1 bowl"},
+  {"name": "Suya (grilled beef skewers)", "region": "nigeria", "meal_type": "snack", "calories": 260, "protein_g": 26, "carbs_g": 6, "fat_g": 14, "serving_desc": "1 stick portion"},
+  {"name": "Boiled plantain and vegetable sauce", "region": "nigeria", "meal_type": "lunch", "calories": 420, "protein_g": 12, "carbs_g": 68, "fat_g": 10, "serving_desc": "1 plate"},
+  {"name": "Groundnut soup with rice", "region": "nigeria", "meal_type": "dinner", "calories": 590, "protein_g": 22, "carbs_g": 62, "fat_g": 26, "serving_desc": "1 plate"},
+  {"name": "Custard and akara", "region": "nigeria", "meal_type": "breakfast", "calories": 350, "protein_g": 12, "carbs_g": 50, "fat_g": 12, "serving_desc": "1 cup custard + 3 akara balls"}
+]

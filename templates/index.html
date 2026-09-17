@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Meal Planner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #7C93A6; color: #161A1F; }
+    header { padding: 20px 32px; background: #161A1F; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 20px; }
+    header a { color: #C9D4DE; text-decoration: none; font-size: 13px; }
+    .container { max-width: 920px; margin: 24px auto; padding: 0 24px; }
+    .card { background: #F3F1EA; border-radius: 10px; padding: 22px; margin-bottom: 20px; overflow-x: auto; }
+    .card h2 { margin-top: 0; font-size: 16px; color: #161A1F; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+    input, select { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; flex: 1; min-width: 130px; background: #fff; color: #161A1F; }
+    button { padding: 10px 18px; border: none; border-radius: 20px; background: #161A1F; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #333; }
+    button.small { padding: 4px 10px; font-size: 11px; }
+    button.secondary { background: #6B7A87; }
+    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .stat-row { display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+    .stat-box { flex: 1; min-width: 90px; background: #fff; border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-box .value { font-size: 18px; font-weight: bold; color: #5B7C99; }
+    .stat-box .label { font-size: 10px; color: #8A8578; margin-top: 4px; }
+    .floor-warning { background: #F0E4CF; color: #6B4E1F; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+    .summary-text { font-size: 14px; color: #4A453C; margin-bottom: 16px; font-style: italic; }
+
+    table.plan-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.plan-table th { text-align: left; padding: 8px 10px; background: #E4E0D3; border-bottom: 2px solid #D8D4C8; text-transform: capitalize; color: #161A1F; }
+    table.plan-table td { padding: 8px 10px; border-bottom: 1px solid #E4E0D3; vertical-align: top; }
+    .day-label { font-weight: 600; white-space: nowrap; }
+    .day-total-cell { font-size: 11px; color: #6B7A87; }
+    .cell-meal-name { font-weight: 500; }
+    .cell-meal-cal { color: #8A8578; font-size: 11px; }
+    .edit-link { font-size: 10px; color: #fff; background: #161A1F; cursor: pointer; border: none; padding: 2px 10px; border-radius: 10px; margin-top: 4px; display: inline-block; }
+    .edit-box { background: #fff; border: 1px solid #E4E0D3; border-radius: 6px; padding: 8px; margin-top: 6px; min-width: 180px; }
+    .edit-box select, .edit-box input { width: 100%; margin-bottom: 6px; font-size: 12px; padding: 6px; }
+    .edit-mode-toggle { font-size: 11px; margin-bottom: 6px; display: flex; gap: 10px; }
+    .edit-mode-toggle a { color: #5B7C99; cursor: pointer; text-decoration: underline; }
+    .edit-actions { display: flex; gap: 6px; }
+
+    /* Clean, screenshot/print-friendly view - no edit UI, matches a
+       simple weekday-letter food timetable format. */
+    table.clean-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    table.clean-table th { text-align: left; padding: 10px 12px; background: #E4E0D3; border: 1px solid #D8D4C8; text-transform: capitalize; color: #161A1F; }
+    table.clean-table td { padding: 10px 12px; border: 1px solid #D8D4C8; vertical-align: top; }
+    table.clean-table .day-letter { font-weight: 700; text-align: center; }
+    .clean-cal { color: #8A8578; font-size: 11px; }
+    .view-toggle-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .view-toggle-row button { padding: 6px 14px; font-size: 12px; }
+
+    @media print {
+      body * { visibility: hidden; }
+      #cleanPlanSection, #cleanPlanSection * { visibility: visible; }
+      #cleanPlanSection { position: absolute; top: 0; left: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="no-print">
+    <h1>Meal Planner</h1>
+    <div>
+      <a href="/foods" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">My Foods</a>
+      <a href="/activity" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Activity</a>
+      <a href="/logout">Log out ({{ current_user.email }})</a>
+    </div>
+  </header>
+  <div class="container">
+
+    <div class="card no-print">
+      <h2>Your profile</h2>
+      <div id="formError"></div>
+      <div class="form-row">
+        <input type="number" id="weight" placeholder="Weight (kg)" />
+        <input type="number" id="height" placeholder="Height (cm)" />
+        <input type="number" id="age" placeholder="Age" />
+      </div>
+      <div class="form-row">
+        <select id="sex">
+          <option value="female">Female</option>
+          <option value="male">Male</option>
+        </select>
+        <select id="activityLevel">
+          <option value="sedentary">Sedentary (little exercise)</option>
+          <option value="light">Light (1-3 days/week)</option>
+          <option value="moderate">Moderate (3-5 days/week)</option>
+          <option value="active">Active (6-7 days/week)</option>
+          <option value="very_active">Very active</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <select id="goal">
+          <option value="lose">Lose weight</option>
+          <option value="maintain">Maintain weight</option>
+          <option value="gain">Gain weight</option>
+        </select>
+        <select id="region">
+          <option value="nigeria">Nigeria</option>
+          <option value="us">United States</option>
+        </select>
+        <input type="hidden" id="days" value="5" />
+      </div>
+      <p style="font-size:12px;color:#999;margin-top:-6px;">Plans always run Monday through Friday.</p>
+      <button onclick="generatePlan()">Generate plan</button>
+    </div>
+
+    <div id="targetsCard" class="no-print"></div>
+    <div id="planCard" class="no-print"></div>
+    <div id="cleanPlanSection"></div>
+
+  </div>
+
+  <script>
+    const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
+    const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+    const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F'];
+    let myFoods = [];
+    let currentPlan = [];
+    let cleanViewOpen = false;
+
+    async function loadFoodsForEditing() {
+      const res = await fetch('/api/foods');
+      myFoods = await res.json();
+    }
+
+    function weekdayLabel(dayIndex) {
+      // Fixed Monday-Friday, not relative to today's real date - the
+      // plan is always a standard 5-day workweek timetable.
+      return WEEKDAY_NAMES[dayIndex - 1] || `Day ${dayIndex}`;
+    }
+
+    function weekdayLetter(dayIndex) {
+      return WEEKDAY_LETTERS[dayIndex - 1] || '?';
+    }
+
+    async function generatePlan() {
+      const errorBox = document.getElementById('formError');
+      errorBox.innerHTML = '';
+      document.getElementById('planCard').innerHTML = '<div class="card"><p style="text-align:center;color:#999;">Generating...</p></div>';
+
+      const payload = {
+        weight_kg: document.getElementById('weight').value,
+        height_cm: document.getElementById('height').value,
+        age: document.getElementById('age').value,
+        sex: document.getElementById('sex').value,
+        activity_level: document.getElementById('activityLevel').value,
+        goal: document.getElementById('goal').value,
+        region: document.getElementById('region').value,
+        days: document.getElementById('days').value || 7,
+      };
+
+      try {
+        const res = await fetch('/api/generate-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          document.getElementById('planCard').innerHTML = '';
+          return;
+        }
+
+        renderTargets(data.profile_targets, data.summary);
+        await loadFoodsForEditing();
+        currentPlan = data.plan;
+        renderPlanTable(); renderCleanTable();
+      } catch (err) {
+        errorBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+        document.getElementById('planCard').innerHTML = '';
+      }
+    }
+
+    function renderTargets(t, summary) {
+      let html = '<div class="card"><h2>Your targets</h2>';
+      if (t.floor_applied) {
+        html += `<div class="floor-warning">Your calculated deficit went below a safe minimum, so the target was capped at 1200 calories/day instead.</div>`;
+      }
+      html += `<div class="stat-row">
+        <div class="stat-box"><div class="value">${t.calorie_target}</div><div class="label">kcal/day</div></div>
+        <div class="stat-box"><div class="value">${t.macros.protein_g}g</div><div class="label">Protein</div></div>
+        <div class="stat-box"><div class="value">${t.macros.carbs_g}g</div><div class="label">Carbs</div></div>
+        <div class="stat-box"><div class="value">${t.macros.fat_g}g</div><div class="label">Fat</div></div>
+      </div>`;
+      if (summary) html += `<p class="summary-text">${summary}</p>`;
+      html += '</div>';
+      document.getElementById('targetsCard').innerHTML = html;
+    }
+
+    function findMeal(day, mealType) {
+      return day.meals.find((m) => m.meal_type === mealType);
+    }
+
+    function renderPlanTable() {
+      if (!currentPlan || currentPlan.length === 0) {
+        document.getElementById('planCard').innerHTML = '';
+        return;
+      }
+
+      let html = '<div class="card"><div class="view-toggle-row"><h2 style="margin:0;">Your plan</h2><button onclick="toggleCleanView()">Screenshot / Print view</button></div><table class="plan-table"><thead><tr><th>Day</th>';
+      MEAL_TYPES.forEach((mt) => { html += `<th>${mt}</th>`; });
+      html += '<th>Total</th></tr></thead><tbody>';
+
+      currentPlan.forEach((day) => {
+        html += `<tr><td class="day-label">${weekdayLabel(day.day)}</td>`;
+        MEAL_TYPES.forEach((mt) => {
+          const meal = findMeal(day, mt);
+          html += `<td>${meal ? renderCell(meal) : '<span style="color:#ccc;">-</span>'}</td>`;
+        });
+        html += `<td class="day-total-cell">${day.totals.calories} kcal<br>P:${day.totals.protein_g}g C:${day.totals.carbs_g}g F:${day.totals.fat_g}g</td>`;
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      document.getElementById('planCard').innerHTML = html;
+    }
+
+    function renderCell(meal) {
+      return `
+        <div id="cell-${meal.id}">
+          <div class="cell-meal-name">${meal.name}</div>
+          <div class="cell-meal-cal">${meal.calories} kcal</div>
+          <button class="edit-link" onclick="showEditBox(${meal.id})">Edit</button>
+        </div>
+      `;
+    }
+
+    function toggleCleanView() {
+      cleanViewOpen = !cleanViewOpen;
+      renderCleanTable();
+    }
+
+    function renderCleanTable() {
+      const container = document.getElementById('cleanPlanSection');
+      if (!cleanViewOpen || !currentPlan || currentPlan.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      let html = '<div class="card">';
+      html += '<div class="view-toggle-row no-print"><h2 style="margin:0;">Meal Plan</h2>';
+      html += '<div><button onclick="window.print()">Print / Save as PDF</button> ';
+      html += '<button class="secondary" onclick="toggleCleanView()">Back to editing</button></div></div>';
+
+      html += '<table class="clean-table"><thead><tr><th>Days</th>';
+      MEAL_TYPES.forEach((mt) => { html += `<th>${mt}</th>`; });
+      html += '</tr></thead><tbody>';
+
+      currentPlan.forEach((day) => {
+        html += `<tr><td class="day-letter">${weekdayLetter(day.day)}</td>`;
+        MEAL_TYPES.forEach((mt) => {
+          const meal = findMeal(day, mt);
+          if (meal) {
+            html += `<td>${meal.name}<div class="clean-cal">${meal.calories} kcal</div></td>`;
+          } else {
+            html += '<td></td>';
+          }
+        });
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
+      container.innerHTML = html;
+    }
+
+    function showEditBox(mealId) {
+      const cell = document.getElementById(`cell-${mealId}`);
+      const foodOptions = myFoods.map((f) => `<option value="${f.id}">${f.name} (${f.calories_per_100g} kcal/100g)</option>`).join('');
+
+      cell.innerHTML += `
+        <div class="edit-box" id="editbox-${mealId}">
+          <div class="edit-mode-toggle">
+            <a onclick="setEditMode(${mealId}, 'library')" id="mode-library-${mealId}"><b>From my foods</b></a>
+            <a onclick="setEditMode(${mealId}, 'manual')" id="mode-manual-${mealId}">Enter manually</a>
+          </div>
+          <div id="library-fields-${mealId}">
+            <select id="foodSelect-${mealId}">${foodOptions || '<option>No foods in your library yet</option>'}</select>
+            <input type="number" id="grams-${mealId}" placeholder="Grams" value="100" />
+          </div>
+          <div id="manual-fields-${mealId}" style="display:none;">
+            <input type="text" id="manualName-${mealId}" placeholder="Food name" />
+            <input type="number" id="manualCal-${mealId}" placeholder="Calories" />
+          </div>
+          <div class="edit-actions">
+            <button class="small" onclick="saveEdit(${mealId})">Save</button>
+            <button class="small secondary" onclick="cancelEdit(${mealId})">Cancel</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function setEditMode(mealId, mode) {
+      document.getElementById(`library-fields-${mealId}`).style.display = mode === 'library' ? 'block' : 'none';
+      document.getElementById(`manual-fields-${mealId}`).style.display = mode === 'manual' ? 'block' : 'none';
+      document.getElementById(`mode-library-${mealId}`).innerHTML = mode === 'library' ? '<b>From my foods</b>' : 'From my foods';
+      document.getElementById(`mode-manual-${mealId}`).innerHTML = mode === 'manual' ? '<b>Enter manually</b>' : 'Enter manually';
+    }
+
+    function cancelEdit(mealId) {
+      renderPlanTable(); renderCleanTable();
+    }
+
+    async function saveEdit(mealId) {
+      const isManual = document.getElementById(`manual-fields-${mealId}`).style.display === 'block';
+      let payload;
+
+      if (isManual) {
+        payload = {
+          food_name: document.getElementById(`manualName-${mealId}`).value.trim(),
+          calories: document.getElementById(`manualCal-${mealId}`).value,
+        };
+        if (!payload.food_name || !payload.calories) {
+          alert('Enter both a food name and calories.');
+          return;
+        }
+      } else {
+        const foodId = document.getElementById(`foodSelect-${mealId}`).value;
+        if (!foodId) {
+          alert('Select a food, or switch to manual entry.');
+          return;
+        }
+        payload = {
+          food_id: foodId,
+          grams: document.getElementById(`grams-${mealId}`).value || 100,
+        };
+      }
+
+      const res = await fetch(`/api/plan/meals/${mealId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.error || 'Could not save this edit.');
+        return;
+      }
+
+      currentPlan.forEach((day) => {
+        const idx = day.meals.findIndex((m) => m.id === mealId);
+        if (idx !== -1) {
+          day.meals[idx] = { ...day.meals[idx], ...data.meal };
+          day.totals = data.day_totals;
+        }
+      });
+      renderPlanTable(); renderCleanTable();
+    }
+
+    async function loadExistingPlan() {
+      const res = await fetch('/api/plan/latest');
+      const plan = await res.json();
+      if (plan.length > 0) {
+        await loadFoodsForEditing();
+        currentPlan = plan;
+        renderPlanTable(); renderCleanTable();
+      }
+    }
+
+    loadExistingPlan();
+  </script>
+</body>
+</html>

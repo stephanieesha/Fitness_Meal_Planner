@@ -1,0 +1,467 @@
+"""
+Meal Planner web app, now with accounts. Every generated plan is saved
+against the logged-in user's target history - the foundation Phase 3's
+dashboard (weight trend, target history) will read from.
+
+Run with: python src/app.py
+Then open: http://localhost:5040
+"""
+
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from flask import Flask, jsonify, render_template, request, redirect, url_for
+from flask_login import (
+    LoginManager, UserMixin, login_user, logout_user,
+    login_required, current_user,
+)
+
+from db import get_connection, init_db
+from auth import (
+    create_user, authenticate_user, get_user_by_id,
+    save_target_entry, get_target_history,
+    EmailAlreadyExists, InvalidCredentials,
+)
+from nutrition import build_profile_targets
+from meal_selector import build_week_plan
+from ai_enrichment import generate_plan_summary
+from food_library import (
+    add_food, get_foods, get_food, delete_food, update_food_category,
+    FoodNotFound, InvalidCategory, MEAL_CATEGORIES,
+)
+from nutrition_lookup import search_food_nutrition, FoodLookupError
+from plan_storage import save_plan, get_latest_plan, update_plan_meal, PlanMealNotFound
+from apple_health_parser import parse_upload
+from activity_storage import save_activity_log, get_activity_log
+from screenshot_parser import extract_active_calories, ScreenshotParseError
+import re
+
+ROOT = Path(__file__).parent.parent
+app = Flask(__name__, template_folder=str(ROOT / "templates"))
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-insecure-key-change-in-env")
+# Apple Health exports can genuinely be several hundred MB for a long-time
+# user - default Flask has no cap, but an explicit generous limit avoids
+# an unbounded upload taking down the server.
+app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500MB
+
+init_db()
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
+
+
+class User(UserMixin):
+    def __init__(self, user_row):
+        self.id = str(user_row["id"])
+        self.email = user_row["email"]
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    conn = get_connection()
+    try:
+        row = get_user_by_id(conn, int(user_id))
+        return User(row) if row else None
+    finally:
+        conn.close()
+
+
+VALID_SEX = ("male", "female")
+VALID_ACTIVITY = ("sedentary", "light", "moderate", "active", "very_active")
+VALID_GOAL = ("lose", "maintain", "gain")
+VALID_REGIONS = ("nigeria", "us")
+
+
+@app.route("/signup", methods=["GET", "POST"])
+def signup():
+    if request.method == "GET":
+        return render_template("signup.html")
+
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    if not email or len(password) < 8:
+        return render_template("signup.html", error="Email is required and password must be at least 8 characters"), 400
+
+    conn = get_connection()
+    try:
+        user_row = create_user(conn, email, password)
+        login_user(User(user_row))
+        return redirect(url_for("index"))
+    except EmailAlreadyExists:
+        return render_template("signup.html", error="An account with that email already exists"), 400
+    finally:
+        conn.close()
+
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "GET":
+        return render_template("login.html")
+
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+
+    conn = get_connection()
+    try:
+        user_row = authenticate_user(conn, email, password)
+        login_user(User(user_row))
+        return redirect(url_for("index"))
+    except InvalidCredentials:
+        return render_template("login.html", error="Incorrect email or password"), 401
+    finally:
+        conn.close()
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
+@app.route("/")
+@login_required
+def index():
+    return render_template("index.html")
+
+
+@app.route("/api/generate-plan", methods=["POST"])
+@login_required
+def generate_plan():
+    data = request.get_json() or {}
+
+    required = ["weight_kg", "height_cm", "age", "sex", "activity_level", "goal", "region"]
+    missing = [f for f in required if data.get(f) in (None, "")]
+    if missing:
+        return jsonify({"error": f"Missing required field(s): {', '.join(missing)}"}), 400
+
+    if data["sex"] not in VALID_SEX:
+        return jsonify({"error": f"sex must be one of {VALID_SEX}"}), 400
+    if data["activity_level"] not in VALID_ACTIVITY:
+        return jsonify({"error": f"activity_level must be one of {VALID_ACTIVITY}"}), 400
+    if data["goal"] not in VALID_GOAL:
+        return jsonify({"error": f"goal must be one of {VALID_GOAL}"}), 400
+    if data["region"] not in VALID_REGIONS:
+        return jsonify({"error": f"region must be one of {VALID_REGIONS}"}), 400
+
+    try:
+        weight_kg = float(data["weight_kg"])
+        height_cm = float(data["height_cm"])
+        age = int(data["age"])
+        days = int(data.get("days", 7))
+    except (ValueError, TypeError):
+        return jsonify({"error": "weight_kg, height_cm, age, and days must be numbers"}), 400
+
+    profile_targets = build_profile_targets(
+        weight_kg, height_cm, age, data["sex"], data["activity_level"], data["goal"]
+    )
+
+    week_plan = build_week_plan(
+        data["region"], profile_targets["calorie_target"], days=days,
+        meal_types=("breakfast", "lunch", "dinner", "snack"),
+    )
+    summary = generate_plan_summary(profile_targets, data["region"], data["goal"])
+
+    conn = get_connection()
+    try:
+        profile_inputs = {
+            "weight_kg": weight_kg, "height_cm": height_cm, "age": age,
+            "sex": data["sex"], "activity_level": data["activity_level"],
+            "goal": data["goal"], "region": data["region"],
+        }
+        save_target_entry(conn, int(current_user.id), profile_inputs, profile_targets)
+        # Persisted so the plan survives a page reload and individual
+        # meals can be edited afterward - without this, editing would
+        # have nothing durable to target.
+        save_plan(conn, int(current_user.id), week_plan)
+    finally:
+        conn.close()
+
+    return jsonify({
+        "profile_targets": profile_targets,
+        "summary": summary,
+        "plan": week_plan,
+    })
+
+
+@app.route("/api/target-history")
+@login_required
+def target_history():
+    conn = get_connection()
+    try:
+        history = get_target_history(conn, int(current_user.id))
+        return jsonify(history)
+    finally:
+        conn.close()
+
+
+@app.route("/api/plan/latest")
+@login_required
+def latest_plan():
+    conn = get_connection()
+    try:
+        return jsonify(get_latest_plan(conn, int(current_user.id)))
+    finally:
+        conn.close()
+
+
+@app.route("/api/plan/meals/<int:meal_id>", methods=["PATCH"])
+@login_required
+def edit_plan_meal(meal_id):
+    data = request.get_json() or {}
+    conn = get_connection()
+
+    try:
+        if data.get("food_id"):
+            # Sourced from the user's own food library, scaled by grams
+            # so the calories genuinely reflect what was actually chosen,
+            # not left stale from whatever meal this is replacing.
+            try:
+                grams = float(data.get("grams", 100))
+            except (ValueError, TypeError):
+                return jsonify({"error": "grams must be a number"}), 400
+
+            try:
+                food = get_food(conn, int(current_user.id), int(data["food_id"]))
+            except FoodNotFound:
+                return jsonify({"error": "Food not found in your library"}), 404
+
+            multiplier = grams / 100
+            updated_values = {
+                "food_name": food["name"],
+                "calories": round(food["calories_per_100g"] * multiplier, 1),
+                "protein_g": round(food["protein_per_100g"] * multiplier, 1),
+                "carbs_g": round(food["carbs_per_100g"] * multiplier, 1),
+                "fat_g": round(food["fat_per_100g"] * multiplier, 1),
+                "food_id": food["id"],
+            }
+        else:
+            # Manual entry: just a name and a calorie count - macros
+            # default to 0 since none were supplied.
+            food_name = (data.get("food_name") or "").strip()
+            if not food_name:
+                return jsonify({"error": "food_name is required for a manual entry"}), 400
+            try:
+                calories = float(data["calories"])
+            except (ValueError, TypeError, KeyError):
+                return jsonify({"error": "calories must be a number"}), 400
+
+            updated_values = {
+                "food_name": food_name,
+                "calories": calories,
+                "protein_g": 0,
+                "carbs_g": 0,
+                "fat_g": 0,
+                "food_id": None,
+            }
+
+        result = update_plan_meal(conn, int(current_user.id), meal_id, updated_values)
+        return jsonify(result)
+    except PlanMealNotFound:
+        return jsonify({"error": "Meal not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/foods")
+@login_required
+def foods_page():
+    return render_template("foods.html")
+
+
+@app.route("/api/foods", methods=["GET"])
+@login_required
+def list_foods():
+    conn = get_connection()
+    try:
+        return jsonify(get_foods(conn, int(current_user.id)))
+    finally:
+        conn.close()
+
+
+@app.route("/api/foods", methods=["POST"])
+@login_required
+def create_food():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+    meal_category = data.get("meal_category", "other")
+
+    if not name:
+        return jsonify({"error": "Food name is required"}), 400
+    if meal_category not in MEAL_CATEGORIES:
+        return jsonify({"error": f"meal_category must be one of {MEAL_CATEGORIES}"}), 400
+
+    # Manual mode: if macros were explicitly provided (the fallback path
+    # after an automatic lookup failed), use them directly and skip the
+    # lookup entirely. Micronutrients (calcium/vitamin C/omega-3) are
+    # optional even in manual mode - defaulting to 0 rather than forcing
+    # the user to look those up too defeats the point of this feature.
+    manual_fields = ["calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g"]
+    if all(data.get(f) not in (None, "") for f in manual_fields):
+        try:
+            for field in manual_fields:
+                float(data[field])
+        except (ValueError, TypeError):
+            return jsonify({"error": "calories/protein/carbs/fat must be numbers"}), 400
+
+        conn = get_connection()
+        try:
+            food = add_food(conn, int(current_user.id), {**data, "name": name, "meal_category": meal_category})
+            return jsonify(food), 201
+        finally:
+            conn.close()
+
+    # Automatic mode: look up average nutrition data so the user doesn't
+    # have to find or enter it themselves. Category still comes from the
+    # user's selection - USDA has no concept of "which meal is this for".
+    try:
+        looked_up = search_food_nutrition(name)
+    except FoodLookupError as e:
+        return jsonify({
+            "error": str(e),
+            "manual_entry_required": True,
+        }), 422
+
+    conn = get_connection()
+    try:
+        food = add_food(conn, int(current_user.id), {**looked_up, "meal_category": meal_category})
+        food["matched_description"] = looked_up["matched_description"]
+        return jsonify(food), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/foods/<int:food_id>/category", methods=["PATCH"])
+@login_required
+def change_food_category(food_id):
+    data = request.get_json() or {}
+    category = data.get("meal_category")
+
+    conn = get_connection()
+    try:
+        food = update_food_category(conn, int(current_user.id), food_id, category)
+        return jsonify(food)
+    except InvalidCategory as e:
+        return jsonify({"error": str(e)}), 400
+    except FoodNotFound:
+        return jsonify({"error": "Food not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/api/foods/<int:food_id>", methods=["DELETE"])
+@login_required
+def remove_food(food_id):
+    conn = get_connection()
+    try:
+        delete_food(conn, int(current_user.id), food_id)
+        return jsonify({"deleted": food_id})
+    except FoodNotFound:
+        return jsonify({"error": "Food not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/activity")
+@login_required
+def activity_page():
+    return render_template("activity.html")
+
+
+@app.route("/api/activity/upload", methods=["POST"])
+@login_required
+def upload_activity():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    uploaded = request.files["file"]
+    if not uploaded.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    if not (uploaded.filename.lower().endswith(".xml") or uploaded.filename.lower().endswith(".zip")):
+        return jsonify({"error": "Upload your Apple Health export as a .zip or .xml file"}), 400
+
+    try:
+        file_bytes = uploaded.read()
+        daily_totals = parse_upload(file_bytes, uploaded.filename)
+    except Exception as e:
+        print(f"[activity_upload] Failed to parse upload: {type(e).__name__}: {e}")
+        return jsonify({"error": f"Could not parse this file: {type(e).__name__}: {e}"}), 400
+
+    if not daily_totals:
+        return jsonify({"error": "No Active Energy data found in this export"}), 422
+
+    conn = get_connection()
+    try:
+        days_written = save_activity_log(conn, int(current_user.id), daily_totals)
+        return jsonify({
+            "days_processed": days_written,
+            "date_range": [min(daily_totals), max(daily_totals)],
+        })
+    finally:
+        conn.close()
+
+
+@app.route("/api/activity")
+@login_required
+def list_activity():
+    conn = get_connection()
+    try:
+        return jsonify(get_activity_log(conn, int(current_user.id)))
+    finally:
+        conn.close()
+
+
+@app.route("/api/activity/screenshot/extract", methods=["POST"])
+@login_required
+def extract_activity_screenshot():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    uploaded = request.files["file"]
+    if not uploaded.filename:
+        return jsonify({"error": "No file selected"}), 400
+
+    try:
+        calories = extract_active_calories(uploaded.read(), uploaded.filename)
+        return jsonify({"active_calories": calories})
+    except ScreenshotParseError as e:
+        return jsonify({"error": str(e)}), 422
+
+
+@app.route("/api/activity/screenshot/confirm", methods=["POST"])
+@login_required
+def confirm_activity_screenshot():
+    # Separate from extract on purpose - the extracted value is shown to
+    # the user first and only written here once they confirm or correct
+    # it, since AI-read numbers off an image can be wrong.
+    data = request.get_json() or {}
+    date_str = data.get("date", "")
+
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        return jsonify({"error": "date must be in YYYY-MM-DD format"}), 400
+
+    try:
+        calories = float(data.get("active_calories"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "active_calories must be a number"}), 400
+
+    conn = get_connection()
+    try:
+        save_activity_log(conn, int(current_user.id), {date_str: calories})
+        return jsonify({"saved": True, "date": date_str, "active_calories": calories})
+    finally:
+        conn.close()
+
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5040)

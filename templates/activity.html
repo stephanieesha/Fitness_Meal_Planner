@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Activity - Meal Planner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #7C93A6; color: #161A1F; }
+    header { padding: 20px 32px; background: #161A1F; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 20px; }
+    header nav a { color: #C9D4DE; text-decoration: none; font-size: 13px; margin-left: 16px; }
+    .container { max-width: 700px; margin: 24px auto; padding: 0 24px; }
+    .card { background: #F3F1EA; border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+    .card h2 { margin-top: 0; font-size: 16px; color: #161A1F; }
+    button { padding: 10px 18px; border: none; border-radius: 20px; background: #161A1F; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #333; }
+    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .success-box { background: #DEE9DC; border: 1px solid #B3C9AE; color: #2E4A2E; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .instructions { font-size: 13px; color: #4A453C; line-height: 1.6; margin-bottom: 16px; }
+    .instructions ol { padding-left: 20px; }
+    .file-input-row { display: flex; gap: 10px; align-items: center; margin-bottom: 6px; }
+    input[type=file] { font-size: 13px; }
+    .activity-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #E4E0D3; font-size: 13px; }
+    .activity-date { font-weight: 500; }
+    .activity-cal { color: #5B7C99; }
+    .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
+    .avg-box { background: #fff; border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 16px; }
+    .avg-box .value { font-size: 22px; font-weight: bold; color: #5B7C99; }
+    .avg-box .label { font-size: 11px; color: #8A8578; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Activity</h1>
+    <nav><a href="/">Meal Plan</a><a href="/foods">My Foods</a><a href="/logout">Log out</a></nav>
+  </header>
+  <div class="container">
+
+    <div class="card">
+      <h2>Upload Apple Health data</h2>
+      <div class="instructions">
+        <p>To get your Active Energy data (from your Watch's Move ring):</p>
+        <ol>
+          <li>Open the <b>Health</b> app on your iPhone</li>
+          <li>Tap your profile picture (top right) &rarr; <b>Export All Health Data</b></li>
+          <li>This produces a .zip file - transfer it here (AirDrop to your Mac, or however you get files off your phone)</li>
+          <li>Upload that .zip directly - no need to unzip it first</li>
+        </ol>
+      </div>
+      <div id="uploadMessage"></div>
+      <div class="file-input-row">
+        <input type="file" id="fileInput" accept=".zip,.xml" />
+        <button onclick="uploadFile()">Upload</button>
+      </div>
+      <p style="font-size:11px;color:#999;">Large exports (100MB+) may take a moment to process.</p>
+    </div>
+
+    <div class="card">
+      <h2>Upload one day (screenshot)</h2>
+      <p class="instructions" style="margin-bottom:12px;">
+        Upload a screenshot of your Fitness or Health app's activity rings for a single day.
+        Claude reads the Move/Active Energy number from the image - you'll see what it found
+        before anything is saved, since reading a number off an image can occasionally be wrong.
+      </p>
+      <div id="screenshotMessage"></div>
+      <div class="file-input-row">
+        <input type="date" id="screenshotDate" />
+        <input type="file" id="screenshotInput" accept=".png,.jpg,.jpeg,.webp" />
+        <button onclick="extractScreenshot()">Read screenshot</button>
+      </div>
+      <div id="confirmBox" style="display:none; margin-top:12px; background:#fff; border-radius:8px; padding:12px;">
+        <p style="font-size:13px; margin:0 0 8px;">Found this active calorie value - confirm or adjust before saving:</p>
+        <div class="file-input-row">
+          <input type="number" id="confirmCalories" style="max-width:140px;" />
+          <button onclick="confirmScreenshot()">Save</button>
+          <button style="background:#6B7A87;" onclick="cancelConfirm()">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Add manually</h2>
+      <p class="instructions" style="margin-bottom:12px;">
+        No screenshot, no export - just enter a day's active calories directly.
+      </p>
+      <div id="manualMessage"></div>
+      <div class="file-input-row">
+        <input type="date" id="manualDate" />
+        <input type="number" id="manualCalories" placeholder="Active calories" style="max-width:160px;" />
+        <button onclick="saveManualEntry()">Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your activity</h2>
+      <div id="activitySummary"></div>
+      <div id="activityList"></div>
+    </div>
+
+  </div>
+
+  <script>
+    async function saveManualEntry() {
+      const messageBox = document.getElementById('manualMessage');
+      const dateInput = document.getElementById('manualDate');
+      const caloriesInput = document.getElementById('manualCalories');
+      messageBox.innerHTML = '';
+
+      if (!dateInput.value) {
+        messageBox.innerHTML = '<div class="error-box">Pick a date first.</div>';
+        return;
+      }
+      if (!caloriesInput.value) {
+        messageBox.innerHTML = '<div class="error-box">Enter a calorie value first.</div>';
+        return;
+      }
+
+      const res = await fetch('/api/activity/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: dateInput.value, active_calories: caloriesInput.value }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        return;
+      }
+
+      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${data.date}.</div>`;
+      caloriesInput.value = '';
+      loadActivity();
+    }
+
+    let pendingScreenshotDate = null;
+
+    async function extractScreenshot() {
+      const messageBox = document.getElementById('screenshotMessage');
+      const dateInput = document.getElementById('screenshotDate');
+      const fileInput = document.getElementById('screenshotInput');
+      messageBox.innerHTML = '';
+      document.getElementById('confirmBox').style.display = 'none';
+
+      if (!dateInput.value) {
+        messageBox.innerHTML = '<div class="error-box">Pick the date this screenshot is from first.</div>';
+        return;
+      }
+      if (!fileInput.files.length) {
+        messageBox.innerHTML = '<div class="error-box">Choose a screenshot first.</div>';
+        return;
+      }
+
+      messageBox.innerHTML = '<p style="color:#6B7A87;font-size:13px;">Reading the screenshot...</p>';
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/activity/screenshot/extract', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          return;
+        }
+
+        messageBox.innerHTML = '';
+        pendingScreenshotDate = dateInput.value;
+        document.getElementById('confirmCalories').value = data.active_calories;
+        document.getElementById('confirmBox').style.display = 'block';
+      } catch (err) {
+        messageBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+      }
+    }
+
+    async function confirmScreenshot() {
+      const messageBox = document.getElementById('screenshotMessage');
+      const calories = document.getElementById('confirmCalories').value;
+
+      const res = await fetch('/api/activity/screenshot/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: pendingScreenshotDate, active_calories: calories }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        return;
+      }
+
+      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${data.date}.</div>`;
+      document.getElementById('confirmBox').style.display = 'none';
+      document.getElementById('screenshotInput').value = '';
+      loadActivity();
+    }
+
+    function cancelConfirm() {
+      document.getElementById('confirmBox').style.display = 'none';
+      document.getElementById('screenshotMessage').innerHTML = '';
+    }
+
+    async function uploadFile() {
+      const messageBox = document.getElementById('uploadMessage');
+      const fileInput = document.getElementById('fileInput');
+      messageBox.innerHTML = '';
+
+      if (!fileInput.files.length) {
+        messageBox.innerHTML = '<div class="error-box">Choose a file first.</div>';
+        return;
+      }
+
+      messageBox.innerHTML = '<p style="color:#999;font-size:13px;">Uploading and parsing - this can take a moment for large exports...</p>';
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/activity/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+
+        if (!res.ok) {
+          messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          return;
+        }
+
+        messageBox.innerHTML = `<div class="success-box">Processed ${data.days_processed} day(s) of activity data, from ${data.date_range[0]} to ${data.date_range[1]}.</div>`;
+        fileInput.value = '';
+        loadActivity();
+      } catch (err) {
+        messageBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+      }
+    }
+
+    async function loadActivity() {
+      const res = await fetch('/api/activity');
+      const log = await res.json();
+
+      const summaryBox = document.getElementById('activitySummary');
+      const listBox = document.getElementById('activityList');
+
+      if (log.length === 0) {
+        summaryBox.innerHTML = '';
+        listBox.innerHTML = '<p class="empty-state">No activity data uploaded yet.</p>';
+        return;
+      }
+
+      const avg = log.reduce((sum, d) => sum + d.active_calories, 0) / log.length;
+      summaryBox.innerHTML = `
+        <div class="avg-box">
+          <div class="value">${Math.round(avg)} kcal</div>
+          <div class="label">Average active calories/day (last ${log.length} days on record)</div>
+        </div>
+      `;
+
+      listBox.innerHTML = log.map((d) => `
+        <div class="activity-row">
+          <span class="activity-date">${d.activity_date}</span>
+          <span class="activity-cal">${d.active_calories} kcal active</span>
+        </div>
+      `).join('');
+    }
+
+    loadActivity();
+  </script>
+</body>
+</html>

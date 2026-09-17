@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>My Foods - Meal Planner</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #7C93A6; color: #161A1F; }
+    header { padding: 20px 32px; background: #161A1F; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 20px; }
+    header nav a { color: #C9D4DE; text-decoration: none; font-size: 13px; margin-left: 16px; }
+    .container { max-width: 760px; margin: 24px auto; padding: 0 24px; }
+    .card { background: #F3F1EA; border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+    .card h2 { margin-top: 0; font-size: 16px; color: #161A1F; }
+    .form-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    input, select { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; flex: 1; min-width: 100px; background: #fff; color: #161A1F; }
+    button { padding: 9px 16px; border: none; border-radius: 20px; background: #161A1F; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #333; }
+    button.danger { background: #8A5049; padding: 5px 10px; font-size: 12px; }
+    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .search-row { margin-bottom: 16px; }
+    .search-row input { width: 100%; }
+    .category-group { margin-bottom: 20px; }
+    .category-title { font-size: 13px; font-weight: 600; color: #5B7C99; text-transform: capitalize; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #E4E0D3; }
+    .food-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #E4E0D3; font-size: 13px; gap: 10px; flex-wrap: wrap; }
+    .food-name { font-weight: 500; cursor: help; border-bottom: 1px dotted #8A8578; }
+    .food-macros { color: #4A453C; }
+    .food-micros { color: #8A8578; font-size: 12px; }
+    .food-actions { display: flex; align-items: center; gap: 8px; }
+    .category-select { font-size: 12px; padding: 4px 6px; min-width: auto; border-radius: 6px; }
+    .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
+    .optional-note { font-size: 11px; color: #8A8578; margin: -4px 0 8px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>My Foods</h1>
+    <nav><a href="/">Meal Plan</a><a href="/activity">Activity</a><a href="/logout">Log out</a></nav>
+  </header>
+  <div class="container">
+
+    <div class="card">
+      <h2>Add a food</h2>
+      <div id="formError"></div>
+      <div class="form-row">
+        <input type="text" id="name" placeholder="Food name (e.g. banana, chicken breast)" onkeydown="if(event.key === 'Enter') addFood()" />
+        <select id="category">
+          <option value="breakfast">Breakfast</option>
+          <option value="lunch">Lunch</option>
+          <option value="dinner">Dinner</option>
+          <option value="snack">Snack</option>
+          <option value="other" selected>Other</option>
+        </select>
+        <button onclick="addFood()">Add</button>
+      </div>
+      <p style="font-size:12px;color:#999;">Nutrition data (including calcium, vitamin C, and omega-3) is looked up automatically from USDA's food database.</p>
+
+      <div id="manualEntry" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
+        <p style="font-size:13px; margin-bottom:8px;">Couldn't find that automatically - enter values manually:</p>
+        <div class="form-row">
+          <input type="number" id="manualCalories" placeholder="Calories/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+          <input type="number" id="manualProtein" placeholder="Protein g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+        </div>
+        <div class="form-row">
+          <input type="number" id="manualCarbs" placeholder="Carbs g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+          <input type="number" id="manualFat" placeholder="Fat g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+        </div>
+        <p class="optional-note">The three below are optional - leave blank if you don't know them, they'll default to 0.</p>
+        <div class="form-row">
+          <input type="number" id="manualCalcium" placeholder="Calcium mg/100g (optional)" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+          <input type="number" id="manualVitaminC" placeholder="Vitamin C mg/100g (optional)" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+          <input type="number" id="manualOmega3" placeholder="Omega-3 g/100g (optional)" step="0.01" onkeydown="if(event.key === 'Enter') addFoodManually()" />
+        </div>
+        <button onclick="addFoodManually()">Save with these values</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Your foods</h2>
+      <div class="search-row">
+        <input type="text" id="searchBox" placeholder="Search your foods..." oninput="renderFoods()" />
+      </div>
+      <p style="font-size:12px;color:#999;">Hover a food name to see calories per 100g. Change the dropdown next to a food to re-categorize it.</p>
+      <div id="foodList"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const CATEGORY_ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'other'];
+    let allFoods = [];
+
+    async function loadFoods() {
+      const res = await fetch('/api/foods');
+      allFoods = await res.json();
+      renderFoods();
+    }
+
+    function renderFoods() {
+      const list = document.getElementById('foodList');
+      const query = document.getElementById('searchBox').value.trim().toLowerCase();
+
+      const filtered = query
+        ? allFoods.filter((f) => f.name.toLowerCase().includes(query))
+        : allFoods;
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<p class="empty-state">${allFoods.length === 0 ? 'No foods added yet.' : 'No foods match your search.'}</p>`;
+        return;
+      }
+
+      let html = '';
+      CATEGORY_ORDER.forEach((category) => {
+        const inCategory = filtered.filter((f) => f.meal_category === category);
+        if (inCategory.length === 0) return;
+
+        html += `<div class="category-group"><div class="category-title">${category}</div>`;
+        inCategory.forEach((f) => {
+          html += `
+            <div class="food-row">
+              <span class="food-name" title="${f.calories_per_100g} kcal per 100g">${f.name}</span>
+              <span class="food-macros">Protein: ${f.protein_per_100g}g &middot; Carbs: ${f.carbs_per_100g}g &middot; Fat: ${f.fat_per_100g}g</span>
+              <span class="food-micros">Calcium: ${f.calcium_mg_per_100g}mg &middot; Vitamin C: ${f.vitamin_c_mg_per_100g}mg &middot; Omega-3: ${f.omega3_g_per_100g}g</span>
+              <div class="food-actions">
+                <select class="category-select" onchange="updateCategory(${f.id}, this.value)">
+                  ${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}
+                </select>
+                <button class="danger" onclick="removeFood(${f.id})">Remove</button>
+              </div>
+            </div>
+          `;
+        });
+        html += '</div>';
+      });
+
+      list.innerHTML = html;
+    }
+
+    async function addFood() {
+      const errorBox = document.getElementById('formError');
+      const manualSection = document.getElementById('manualEntry');
+      errorBox.innerHTML = '';
+      manualSection.style.display = 'none';
+
+      const name = document.getElementById('name').value.trim();
+      const meal_category = document.getElementById('category').value;
+      if (!name) {
+        errorBox.innerHTML = '<div class="error-box">Enter a food name first.</div>';
+        return;
+      }
+
+      const res = await fetch('/api/foods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, meal_category }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        if (data.manual_entry_required) {
+          manualSection.style.display = 'block';
+        }
+        return;
+      }
+
+      document.getElementById('name').value = '';
+      loadFoods();
+    }
+
+    async function addFoodManually() {
+      const errorBox = document.getElementById('formError');
+      errorBox.innerHTML = '';
+
+      const payload = {
+        name: document.getElementById('name').value.trim(),
+        meal_category: document.getElementById('category').value,
+        calories_per_100g: document.getElementById('manualCalories').value,
+        protein_per_100g: document.getElementById('manualProtein').value,
+        carbs_per_100g: document.getElementById('manualCarbs').value,
+        fat_per_100g: document.getElementById('manualFat').value,
+        calcium_mg_per_100g: document.getElementById('manualCalcium').value || 0,
+        vitamin_c_mg_per_100g: document.getElementById('manualVitaminC').value || 0,
+        omega3_g_per_100g: document.getElementById('manualOmega3').value || 0,
+      };
+
+      const res = await fetch('/api/foods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        return;
+      }
+
+      document.getElementById('name').value = '';
+      document.getElementById('manualCalories').value = '';
+      document.getElementById('manualProtein').value = '';
+      document.getElementById('manualCarbs').value = '';
+      document.getElementById('manualFat').value = '';
+      document.getElementById('manualCalcium').value = '';
+      document.getElementById('manualVitaminC').value = '';
+      document.getElementById('manualOmega3').value = '';
+      document.getElementById('manualEntry').style.display = 'none';
+
+      loadFoods();
+    }
+
+    async function updateCategory(id, newCategory) {
+      await fetch(`/api/foods/${id}/category`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meal_category: newCategory }),
+      });
+      loadFoods();
+    }
+
+    async function removeFood(id) {
+      await fetch(`/api/foods/${id}`, { method: 'DELETE' });
+      loadFoods();
+    }
+
+    loadFoods();
+  </script>
+</body>
+</html>

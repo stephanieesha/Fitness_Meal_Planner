@@ -1,0 +1,13 @@
+[
+  {"name": "Oatmeal with berries and almonds", "region": "us", "meal_type": "breakfast", "calories": 340, "protein_g": 12, "carbs_g": 50, "fat_g": 10, "serving_desc": "1 bowl"},
+  {"name": "Scrambled eggs with toast", "region": "us", "meal_type": "breakfast", "calories": 380, "protein_g": 22, "carbs_g": 32, "fat_g": 18, "serving_desc": "3 eggs + 2 slices toast"},
+  {"name": "Grilled chicken salad", "region": "us", "meal_type": "lunch", "calories": 420, "protein_g": 38, "carbs_g": 22, "fat_g": 18, "serving_desc": "1 large bowl"},
+  {"name": "Turkey sandwich with side salad", "region": "us", "meal_type": "lunch", "calories": 450, "protein_g": 28, "carbs_g": 45, "fat_g": 16, "serving_desc": "1 sandwich + side"},
+  {"name": "Grilled salmon with rice and broccoli", "region": "us", "meal_type": "dinner", "calories": 520, "protein_g": 36, "carbs_g": 45, "fat_g": 20, "serving_desc": "1 plate"},
+  {"name": "Beef stir-fry with vegetables", "region": "us", "meal_type": "dinner", "calories": 540, "protein_g": 32, "carbs_g": 42, "fat_g": 24, "serving_desc": "1 plate"},
+  {"name": "Baked chicken breast with sweet potato", "region": "us", "meal_type": "dinner", "calories": 460, "protein_g": 40, "carbs_g": 38, "fat_g": 14, "serving_desc": "1 plate"},
+  {"name": "Greek yogurt with granola", "region": "us", "meal_type": "breakfast", "calories": 300, "protein_g": 18, "carbs_g": 36, "fat_g": 9, "serving_desc": "1 cup"},
+  {"name": "Turkey chili", "region": "us", "meal_type": "lunch", "calories": 400, "protein_g": 30, "carbs_g": 38, "fat_g": 14, "serving_desc": "1 bowl"},
+  {"name": "Protein shake with banana", "region": "us", "meal_type": "snack", "calories": 220, "protein_g": 24, "carbs_g": 26, "fat_g": 4, "serving_desc": "1 shake"},
+  {"name": "Mixed nuts and apple", "region": "us", "meal_type": "snack", "calories": 200, "protein_g": 6, "carbs_g": 24, "fat_g": 11, "serving_desc": "1 small handful + 1 apple"}
+]
