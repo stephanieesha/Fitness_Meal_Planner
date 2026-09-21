@@ -5,9 +5,10 @@ than importing a fixed one, so this is testable against a temporary
 database instead of the real one.
 """
 
-import sqlite3
 
 from werkzeug.security import generate_password_hash, check_password_hash
+
+from db import IntegrityError
 
 
 class EmailAlreadyExists(Exception):
@@ -18,7 +19,7 @@ class InvalidCredentials(Exception):
     pass
 
 
-def create_user(conn: sqlite3.Connection, email: str, password: str) -> dict:
+def create_user(conn, email: str, password: str) -> dict:
     password_hash = generate_password_hash(password)
     try:
         cursor = conn.execute(
@@ -26,25 +27,25 @@ def create_user(conn: sqlite3.Connection, email: str, password: str) -> dict:
             (email, password_hash),
         )
         conn.commit()
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise EmailAlreadyExists(f"An account with email '{email}' already exists")
 
     return get_user_by_id(conn, cursor.lastrowid)
 
 
-def authenticate_user(conn: sqlite3.Connection, email: str, password: str) -> dict:
+def authenticate_user(conn, email: str, password: str) -> dict:
     row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
     if row is None or not check_password_hash(row["password_hash"], password):
         raise InvalidCredentials("Incorrect email or password")
     return dict(row)
 
 
-def get_user_by_id(conn: sqlite3.Connection, user_id: int) -> dict:
+def get_user_by_id(conn, user_id: int) -> dict:
     row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return dict(row) if row else None
 
 
-def save_target_entry(conn: sqlite3.Connection, user_id: int, profile_inputs: dict, targets: dict) -> int:
+def save_target_entry(conn, user_id: int, profile_inputs: dict, targets: dict) -> int:
     cursor = conn.execute(
         """
         INSERT INTO target_history
@@ -66,7 +67,7 @@ def save_target_entry(conn: sqlite3.Connection, user_id: int, profile_inputs: di
     return cursor.lastrowid
 
 
-def get_target_history(conn: sqlite3.Connection, user_id: int) -> list:
+def get_target_history(conn, user_id: int) -> list:
     rows = conn.execute(
         "SELECT * FROM target_history WHERE user_id = ? ORDER BY created_at ASC",
         (user_id,),

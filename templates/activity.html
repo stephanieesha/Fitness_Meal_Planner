@@ -100,6 +100,10 @@
   </div>
 
   <script>
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
     async function saveManualEntry() {
       const messageBox = document.getElementById('manualMessage');
       const dateInput = document.getElementById('manualDate');
@@ -123,11 +127,11 @@
       const data = await res.json();
 
       if (!res.ok) {
-        messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        messageBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
         return;
       }
 
-      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${data.date}.</div>`;
+      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${esc(data.date)}.</div>`;
       caloriesInput.value = '';
       loadActivity();
     }
@@ -160,7 +164,7 @@
         const data = await res.json();
 
         if (!res.ok) {
-          messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          messageBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
           return;
         }
 
@@ -169,7 +173,7 @@
         document.getElementById('confirmCalories').value = data.active_calories;
         document.getElementById('confirmBox').style.display = 'block';
       } catch (err) {
-        messageBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+        messageBox.innerHTML = `<div class="error-box">${esc(err.message)}</div>`;
       }
     }
 
@@ -185,11 +189,11 @@
       const data = await res.json();
 
       if (!res.ok) {
-        messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        messageBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
         return;
       }
 
-      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${data.date}.</div>`;
+      messageBox.innerHTML = `<div class="success-box">Saved ${data.active_calories} kcal for ${esc(data.date)}.</div>`;
       document.getElementById('confirmBox').style.display = 'none';
       document.getElementById('screenshotInput').value = '';
       loadActivity();
@@ -220,7 +224,7 @@
         const data = await res.json();
 
         if (!res.ok) {
-          messageBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          messageBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
           return;
         }
 
@@ -228,7 +232,7 @@
         fileInput.value = '';
         loadActivity();
       } catch (err) {
-        messageBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+        messageBox.innerHTML = `<div class="error-box">${esc(err.message)}</div>`;
       }
     }
 
@@ -255,7 +259,7 @@
 
       listBox.innerHTML = log.map((d) => `
         <div class="activity-row">
-          <span class="activity-date">${d.activity_date}</span>
+          <span class="activity-date">${esc(d.activity_date)}</span>
           <span class="activity-cal">${d.active_calories} kcal active</span>
         </div>
       `).join('');

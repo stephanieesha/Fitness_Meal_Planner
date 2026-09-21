@@ -15,6 +15,7 @@ tested against a realistic fixture, but the first real upload is the
 true test of this.
 """
 
+import os
 import xml.etree.ElementTree as ET
 import zipfile
 from collections import defaultdict
@@ -29,7 +30,16 @@ def extract_xml_from_upload(file_bytes: bytes, filename: str) -> bytes:
             xml_names = [n for n in zf.namelist() if n.endswith("export.xml")]
             if not xml_names:
                 raise ValueError("No export.xml found inside the uploaded zip")
+            limit_mb = int(os.environ.get("MAX_EXPORT_XML_MB", "0") or 0)
+            if limit_mb and zf.getinfo(xml_names[0]).file_size > limit_mb * 1024 * 1024:
+                raise ValueError(
+                    f"export.xml is larger than the {limit_mb} MB this app accepts - "
+                    "use a screenshot or enter days by hand instead"
+                )
             return zf.read(xml_names[0])
+    limit_mb = int(os.environ.get("MAX_EXPORT_XML_MB", "0") or 0)
+    if limit_mb and len(file_bytes) > limit_mb * 1024 * 1024:
+        raise ValueError(f"The file is larger than the {limit_mb} MB this app accepts")
     return file_bytes
 
 

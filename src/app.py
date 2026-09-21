@@ -9,6 +9,7 @@ Then open: http://localhost:5040
 
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -24,6 +25,9 @@ from flask_login import (
 )
 
 from db import get_connection, init_db
+from limits import (
+    client_ip, int_setting, too_many_auth_attempts, too_many_writes, use_daily_allowance,
+)
 from auth import (
     create_user, authenticate_user, get_user_by_id,
     save_target_entry, get_target_history,
@@ -31,7 +35,7 @@ from auth import (
 )
 from nutrition import build_profile_targets
 from meal_selector import build_week_plan
-from ai_enrichment import generate_plan_summary
+from ai_enrichment import generate_plan_summary, _default_summary
 from food_library import (
     add_food, get_foods, get_food, delete_food, update_food_category,
     FoodNotFound, InvalidCategory, MEAL_CATEGORIES,
@@ -45,17 +49,35 @@ import re
 
 ROOT = Path(__file__).parent.parent
 app = Flask(__name__, template_folder=str(ROOT / "templates"))
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "dev-only-insecure-key-change-in-env")
+DEV_SECRET_KEY = "dev-only-insecure-key-change-in-env"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", DEV_SECRET_KEY)
+if os.environ.get("PRODUCTION", "").lower() == "true":
+    if app.secret_key == DEV_SECRET_KEY:
+        raise RuntimeError("Set FLASK_SECRET_KEY to a long random value before running in production")
+    app.config["SESSION_COOKIE_SECURE"] = True
+    app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+    app.config["SESSION_COOKIE_HTTPONLY"] = True
 # Apple Health exports can genuinely be several hundred MB for a long-time
 # user - default Flask has no cap, but an explicit generous limit avoids
 # an unbounded upload taking down the server.
-app.config["MAX_CONTENT_LENGTH"] = 500 * 1024 * 1024  # 500MB
+app.config["MAX_CONTENT_LENGTH"] = int_setting("MAX_UPLOAD_MB", 500) * 1024 * 1024  # 500MB unless MAX_UPLOAD_MB says otherwise
 
 init_db()
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
+
+
+@app.before_request
+def limit_requests_per_visitor():
+    ip = client_ip(request)
+    if request.path in ("/login", "/signup") and request.method == "POST":
+        if too_many_auth_attempts(ip):
+            page = "login.html" if request.path == "/login" else "signup.html"
+            return render_template(page, error="Too many attempts - please wait a few minutes and try again"), 429
+    elif request.method in ("POST", "PUT", "PATCH", "DELETE") and too_many_writes(ip):
+        return jsonify({"error": "Too many requests - please slow down and try again in a minute"}), 429
 
 
 class User(UserMixin):
@@ -80,6 +102,15 @@ VALID_GOAL = ("lose", "maintain", "gain")
 VALID_REGIONS = ("nigeria", "us")
 
 
+def _safe_next_url():
+    """The page a visitor was trying to reach before being sent to log in. Only same-site paths are
+    followed, so a crafted link cannot bounce someone to another website."""
+    target = request.args.get("next", "")
+    if target.startswith("/") and not target.startswith("//") and "\\" not in target:
+        return target
+    return None
+
+
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
     if request.method == "GET":
@@ -93,6 +124,8 @@ def signup():
 
     conn = get_connection()
     try:
+        if not use_daily_allowance(conn, "signup", "DAILY_SIGNUP_LIMIT"):
+            return render_template("signup.html", error="Sign-ups are paused for today - please try again tomorrow"), 429
         user_row = create_user(conn, email, password)
         login_user(User(user_row))
         return redirect(url_for("index"))
@@ -114,7 +147,7 @@ def login():
     try:
         user_row = authenticate_user(conn, email, password)
         login_user(User(user_row))
-        return redirect(url_for("index"))
+        return redirect(_safe_next_url() or url_for("index"))
     except InvalidCredentials:
         return render_template("login.html", error="Incorrect email or password"), 401
     finally:
@@ -161,6 +194,11 @@ def generate_plan():
     except (ValueError, TypeError):
         return jsonify({"error": "weight_kg, height_cm, age, and days must be numbers"}), 400
 
+    if not (1 <= days <= 14):
+        return jsonify({"error": "days must be between 1 and 14"}), 400
+    if not (20 <= weight_kg <= 500 and 50 <= height_cm <= 260 and 5 <= age <= 120):
+        return jsonify({"error": "weight_kg (20-500), height_cm (50-260) and age (5-120) must be realistic values"}), 400
+
     profile_targets = build_profile_targets(
         weight_kg, height_cm, age, data["sex"], data["activity_level"], data["goal"]
     )
@@ -169,10 +207,13 @@ def generate_plan():
         data["region"], profile_targets["calorie_target"], days=days,
         meal_types=("breakfast", "lunch", "dinner", "snack"),
     )
-    summary = generate_plan_summary(profile_targets, data["region"], data["goal"])
-
     conn = get_connection()
     try:
+        if use_daily_allowance(conn, "summary", "DAILY_SUMMARY_LIMIT"):
+            summary = generate_plan_summary(profile_targets, data["region"], data["goal"])
+        else:
+            summary = _default_summary(data["goal"])
+
         profile_inputs = {
             "weight_kg": weight_kg, "height_cm": height_cm, "age": age,
             "sex": data["sex"], "activity_level": data["activity_level"],
@@ -183,13 +224,15 @@ def generate_plan():
         # meals can be edited afterward - without this, editing would
         # have nothing durable to target.
         save_plan(conn, int(current_user.id), week_plan)
+        # Return the plan as saved, so every meal carries its id and can be edited straight away
+        saved_plan = get_latest_plan(conn, int(current_user.id))
     finally:
         conn.close()
 
     return jsonify({
         "profile_targets": profile_targets,
         "summary": summary,
-        "plan": week_plan,
+        "plan": saved_plan,
     })
 
 
@@ -231,7 +274,12 @@ def edit_plan_meal(meal_id):
                 return jsonify({"error": "grams must be a number"}), 400
 
             try:
-                food = get_food(conn, int(current_user.id), int(data["food_id"]))
+                food_id = int(data["food_id"])
+            except (ValueError, TypeError):
+                return jsonify({"error": "food_id must be a number"}), 400
+
+            try:
+                food = get_food(conn, int(current_user.id), food_id)
             except FoodNotFound:
                 return jsonify({"error": "Food not found in your library"}), 404
 
@@ -305,6 +353,15 @@ def create_food():
     # lookup entirely. Micronutrients (calcium/vitamin C/omega-3) are
     # optional even in manual mode - defaulting to 0 rather than forcing
     # the user to look those up too defeats the point of this feature.
+    max_foods = int_setting("MAX_FOODS_PER_USER")
+    if max_foods:
+        cap_conn = get_connection()
+        try:
+            if len(get_foods(cap_conn, int(current_user.id))) >= max_foods:
+                return jsonify({"error": f"Your food library is full ({max_foods} foods) - remove one first"}), 400
+        finally:
+            cap_conn.close()
+
     manual_fields = ["calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g"]
     if all(data.get(f) not in (None, "") for f in manual_fields):
         try:
@@ -323,6 +380,17 @@ def create_food():
     # Automatic mode: look up average nutrition data so the user doesn't
     # have to find or enter it themselves. Category still comes from the
     # user's selection - USDA has no concept of "which meal is this for".
+    lookup_conn = get_connection()
+    try:
+        lookup_allowed = use_daily_allowance(lookup_conn, "food_lookup", "DAILY_FOOD_LOOKUP_LIMIT")
+    finally:
+        lookup_conn.close()
+    if not lookup_allowed:
+        return jsonify({
+            "error": "The daily limit for automatic nutrition lookups has been reached - enter the values by hand",
+            "manual_entry_required": True,
+        }), 422
+
     try:
         looked_up = search_food_nutrition(name)
     except FoodLookupError as e:
@@ -431,6 +499,14 @@ def extract_activity_screenshot():
     if not uploaded.filename:
         return jsonify({"error": "No file selected"}), 400
 
+    cap_conn = get_connection()
+    try:
+        allowed = use_daily_allowance(cap_conn, "screenshot", "DAILY_SCREENSHOT_LIMIT")
+    finally:
+        cap_conn.close()
+    if not allowed:
+        return jsonify({"error": "The daily limit for reading screenshots has been reached - enter the day by hand"}), 429
+
     try:
         calories = extract_active_calories(uploaded.read(), uploaded.filename)
         return jsonify({"active_calories": calories})
@@ -438,6 +514,7 @@ def extract_activity_screenshot():
         return jsonify({"error": str(e)}), 422
 
 
+@app.route("/api/activity/manual", methods=["POST"])
 @app.route("/api/activity/screenshot/confirm", methods=["POST"])
 @login_required
 def confirm_activity_screenshot():
@@ -449,6 +526,10 @@ def confirm_activity_screenshot():
 
     if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
         return jsonify({"error": "date must be in YYYY-MM-DD format"}), 400
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "date must be a real calendar date"}), 400
 
     try:
         calories = float(data.get("active_calories"))
@@ -464,4 +545,4 @@ def confirm_activity_screenshot():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5040)
+    app.run(debug=os.environ.get("FLASK_DEBUG", "1") == "1", port=int(os.environ.get("PORT", "5040")))

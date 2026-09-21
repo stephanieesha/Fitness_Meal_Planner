@@ -4,10 +4,9 @@ user. Re-uploading an export with overlapping dates updates those days'
 totals rather than creating duplicates.
 """
 
-import sqlite3
 
 
-def save_activity_log(conn: sqlite3.Connection, user_id: int, daily_totals: dict) -> int:
+def save_activity_log(conn, user_id: int, daily_totals: dict) -> int:
     for date_str, calories in daily_totals.items():
         conn.execute(
             """
@@ -22,7 +21,7 @@ def save_activity_log(conn: sqlite3.Connection, user_id: int, daily_totals: dict
     return len(daily_totals)
 
 
-def get_activity_log(conn: sqlite3.Connection, user_id: int, limit: int = 90) -> list:
+def get_activity_log(conn, user_id: int, limit: int = 90) -> list:
     rows = conn.execute(
         "SELECT activity_date, active_calories FROM activity_log WHERE user_id = ? ORDER BY activity_date DESC LIMIT ?",
         (user_id, limit),

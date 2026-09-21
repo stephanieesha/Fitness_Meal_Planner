@@ -8,7 +8,7 @@ of meal rows can be fetched back together and reassembled into the same
 day/meal structure the plan builder already produces.
 """
 
-import sqlite3
+import os
 from datetime import datetime, timezone
 
 
@@ -16,7 +16,7 @@ class PlanMealNotFound(Exception):
     pass
 
 
-def save_plan(conn: sqlite3.Connection, user_id: int, week_plan: list) -> str:
+def save_plan(conn, user_id: int, week_plan: list) -> str:
     plan_batch = datetime.now(timezone.utc).isoformat()
 
     for day in week_plan:
@@ -33,10 +33,38 @@ def save_plan(conn: sqlite3.Connection, user_id: int, week_plan: list) -> str:
                 ),
             )
     conn.commit()
+    _prune_old_plans(conn, user_id)
     return plan_batch
 
 
-def get_latest_plan(conn: sqlite3.Connection, user_id: int) -> list:
+def _prune_old_plans(conn, user_id: int) -> None:
+    """With KEEP_PLAN_BATCHES set, delete everything but that person's newest plans so the
+    database does not grow without limit on a public deployment."""
+    try:
+        keep = int(os.environ.get("KEEP_PLAN_BATCHES", "0"))
+    except ValueError:
+        keep = 0
+    if keep <= 0:
+        return
+    conn.execute(
+        """
+        DELETE FROM plan_meals
+        WHERE user_id = ? AND plan_batch NOT IN (
+            SELECT plan_batch FROM (
+                SELECT plan_batch, MAX(id) AS newest
+                FROM plan_meals WHERE user_id = ?
+                GROUP BY plan_batch
+                ORDER BY newest DESC
+                LIMIT ?
+            ) AS newest_plans
+        )
+        """,
+        (user_id, user_id, keep),
+    )
+    conn.commit()
+
+
+def get_latest_plan(conn, user_id: int) -> list:
     latest_batch_row = conn.execute(
         "SELECT plan_batch FROM plan_meals WHERE user_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
         (user_id,),
@@ -76,7 +104,7 @@ def get_latest_plan(conn: sqlite3.Connection, user_id: int) -> list:
     return plan
 
 
-def update_plan_meal(conn: sqlite3.Connection, user_id: int, meal_id: int, updated_values: dict) -> dict:
+def update_plan_meal(conn, user_id: int, meal_id: int, updated_values: dict) -> dict:
     row = conn.execute(
         "SELECT * FROM plan_meals WHERE id = ? AND user_id = ?", (meal_id, user_id)
     ).fetchone()

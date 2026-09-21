@@ -87,6 +87,10 @@
   </div>
 
   <script>
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
     const CATEGORY_ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'other'];
     let allFoods = [];
 
@@ -114,11 +118,11 @@
         const inCategory = filtered.filter((f) => f.meal_category === category);
         if (inCategory.length === 0) return;
 
-        html += `<div class="category-group"><div class="category-title">${category}</div>`;
+        html += `<div class="category-group"><div class="category-title">${esc(category)}</div>`;
         inCategory.forEach((f) => {
           html += `
             <div class="food-row">
-              <span class="food-name" title="${f.calories_per_100g} kcal per 100g">${f.name}</span>
+              <span class="food-name" title="${f.calories_per_100g} kcal per 100g">${esc(f.name)}</span>
               <span class="food-macros">Protein: ${f.protein_per_100g}g &middot; Carbs: ${f.carbs_per_100g}g &middot; Fat: ${f.fat_per_100g}g</span>
               <span class="food-micros">Calcium: ${f.calcium_mg_per_100g}mg &middot; Vitamin C: ${f.vitamin_c_mg_per_100g}mg &middot; Omega-3: ${f.omega3_g_per_100g}g</span>
               <div class="food-actions">
@@ -157,7 +161,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
         if (data.manual_entry_required) {
           manualSection.style.display = 'block';
         }
@@ -192,7 +196,7 @@
       const data = await res.json();
 
       if (!res.ok) {
-        errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+        errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
         return;
       }
 

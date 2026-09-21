@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: meal-planner
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    # One worker on purpose: the per-visitor rate limits are kept in memory.
+    startCommand: gunicorn --chdir src app:app --workers 1 --threads 4 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: PRODUCTION
+        value: "true"
+      - key: FLASK_SECRET_KEY
+        generateValue: true  # Render creates a long random value for you
+      - key: DATABASE_URL
+        sync: false          # paste your Neon connection string in the Render dashboard
+      - key: ANTHROPIC_API_KEY
+        sync: false          # optional: plan summaries and screenshot reading
+      - key: USDA_API_KEY
+        sync: false          # optional: automatic nutrition lookups (get a free key from api.data.gov)
+      - key: WRITE_LIMIT_PER_MINUTE
+        value: "60"
+      - key: AUTH_LIMIT_PER_15_MIN
+        value: "20"
+      - key: DAILY_SIGNUP_LIMIT
+        value: "100"
+      - key: DAILY_SUMMARY_LIMIT
+        value: "50"
+      - key: DAILY_SCREENSHOT_LIMIT
+        value: "20"
+      - key: DAILY_FOOD_LOOKUP_LIMIT
+        value: "200"
+      - key: MAX_FOODS_PER_USER
+        value: "200"
+      - key: KEEP_PLAN_BATCHES
+        value: "10"
+      - key: MAX_UPLOAD_MB
+        value: "50"
+      - key: MAX_EXPORT_XML_MB
+        value: "150"

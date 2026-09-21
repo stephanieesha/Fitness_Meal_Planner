@@ -4,7 +4,6 @@ categorized by meal type. This is the data Phase 4's plan builder will
 let users select from, with a calories-per-100g tooltip on each entry.
 """
 
-import sqlite3
 
 MEAL_CATEGORIES = ("breakfast", "lunch", "dinner", "snack", "other")
 
@@ -17,7 +16,7 @@ class InvalidCategory(Exception):
     pass
 
 
-def add_food(conn: sqlite3.Connection, user_id: int, food_data: dict) -> dict:
+def add_food(conn, user_id: int, food_data: dict) -> dict:
     category = food_data.get("meal_category", "other")
     if category not in MEAL_CATEGORIES:
         raise InvalidCategory(f"meal_category must be one of {MEAL_CATEGORIES}")
@@ -47,7 +46,7 @@ def add_food(conn: sqlite3.Connection, user_id: int, food_data: dict) -> dict:
     return get_food(conn, user_id, cursor.lastrowid)
 
 
-def get_foods(conn: sqlite3.Connection, user_id: int) -> list:
+def get_foods(conn, user_id: int) -> list:
     rows = conn.execute(
         "SELECT * FROM foods WHERE user_id = ? ORDER BY name ASC",
         (user_id,),
@@ -55,7 +54,7 @@ def get_foods(conn: sqlite3.Connection, user_id: int) -> list:
     return [dict(row) for row in rows]
 
 
-def get_food(conn: sqlite3.Connection, user_id: int, food_id: int) -> dict:
+def get_food(conn, user_id: int, food_id: int) -> dict:
     row = conn.execute(
         "SELECT * FROM foods WHERE id = ? AND user_id = ?",
         (food_id, user_id),
@@ -65,7 +64,7 @@ def get_food(conn: sqlite3.Connection, user_id: int, food_id: int) -> dict:
     return dict(row)
 
 
-def delete_food(conn: sqlite3.Connection, user_id: int, food_id: int) -> None:
+def delete_food(conn, user_id: int, food_id: int) -> None:
     cursor = conn.execute(
         "DELETE FROM foods WHERE id = ? AND user_id = ?",
         (food_id, user_id),
@@ -75,7 +74,7 @@ def delete_food(conn: sqlite3.Connection, user_id: int, food_id: int) -> None:
         raise FoodNotFound(f"No food with id {food_id} for this user")
 
 
-def update_food_category(conn: sqlite3.Connection, user_id: int, food_id: int, category: str) -> dict:
+def update_food_category(conn, user_id: int, food_id: int, category: str) -> dict:
     if category not in MEAL_CATEGORIES:
         raise InvalidCategory(f"meal_category must be one of {MEAL_CATEGORIES}")
 

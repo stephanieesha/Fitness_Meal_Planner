@@ -113,6 +113,10 @@
   </div>
 
   <script>
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
     const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
     const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
     const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F'];
@@ -160,7 +164,7 @@
         const data = await res.json();
 
         if (!res.ok) {
-          errorBox.innerHTML = `<div class="error-box">${data.error}</div>`;
+          errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
           document.getElementById('planCard').innerHTML = '';
           return;
         }
@@ -170,7 +174,7 @@
         currentPlan = data.plan;
         renderPlanTable(); renderCleanTable();
       } catch (err) {
-        errorBox.innerHTML = `<div class="error-box">${err.message}</div>`;
+        errorBox.innerHTML = `<div class="error-box">${esc(err.message)}</div>`;
         document.getElementById('planCard').innerHTML = '';
       }
     }
@@ -186,7 +190,7 @@
         <div class="stat-box"><div class="value">${t.macros.carbs_g}g</div><div class="label">Carbs</div></div>
         <div class="stat-box"><div class="value">${t.macros.fat_g}g</div><div class="label">Fat</div></div>
       </div>`;
-      if (summary) html += `<p class="summary-text">${summary}</p>`;
+      if (summary) html += `<p class="summary-text">${esc(summary)}</p>`;
       html += '</div>';
       document.getElementById('targetsCard').innerHTML = html;
     }
@@ -222,7 +226,7 @@
     function renderCell(meal) {
       return `
         <div id="cell-${meal.id}">
-          <div class="cell-meal-name">${meal.name}</div>
+          <div class="cell-meal-name">${esc(meal.name)}</div>
           <div class="cell-meal-cal">${meal.calories} kcal</div>
           <button class="edit-link" onclick="showEditBox(${meal.id})">Edit</button>
         </div>
@@ -255,7 +259,7 @@
         MEAL_TYPES.forEach((mt) => {
           const meal = findMeal(day, mt);
           if (meal) {
-            html += `<td>${meal.name}<div class="clean-cal">${meal.calories} kcal</div></td>`;
+            html += `<td>${esc(meal.name)}<div class="clean-cal">${meal.calories} kcal</div></td>`;
           } else {
             html += '<td></td>';
           }
@@ -269,7 +273,7 @@
 
     function showEditBox(mealId) {
       const cell = document.getElementById(`cell-${mealId}`);
-      const foodOptions = myFoods.map((f) => `<option value="${f.id}">${f.name} (${f.calories_per_100g} kcal/100g)</option>`).join('');
+      const foodOptions = myFoods.map((f) => `<option value="${f.id}">${esc(f.name)} (${f.calories_per_100g} kcal/100g)</option>`).join('');
 
       cell.innerHTML += `
         <div class="edit-box" id="editbox-${mealId}">
@@ -278,7 +282,7 @@
             <a onclick="setEditMode(${mealId}, 'manual')" id="mode-manual-${mealId}">Enter manually</a>
           </div>
           <div id="library-fields-${mealId}">
-            <select id="foodSelect-${mealId}">${foodOptions || '<option>No foods in your library yet</option>'}</select>
+            <select id="foodSelect-${mealId}">${foodOptions || '<option value="">No foods in your library yet</option>'}</select>
             <input type="number" id="grams-${mealId}" placeholder="Grams" value="100" />
           </div>
           <div id="manual-fields-${mealId}" style="display:none;">
