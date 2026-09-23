@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Weight - Meal Planner</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #7C93A6; color: #161A1F; }
+    header { padding: 20px 32px; background: #161A1F; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 20px; }
+    header nav a { color: #C9D4DE; text-decoration: none; font-size: 13px; margin-left: 16px; }
+    .container { max-width: 760px; margin: 24px auto; padding: 0 24px; }
+    .card { background: #F3F1EA; border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+    .card h2 { margin-top: 0; font-size: 16px; color: #161A1F; }
+    .form-row { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; align-items: center; }
+    input, select { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; background: #fff; color: #161A1F; }
+    button { padding: 10px 18px; border: none; border-radius: 20px; background: #161A1F; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #333; }
+    button.small { padding: 4px 10px; font-size: 11px; }
+    button.secondary { background: #6B7A87; }
+    button.range-btn { background: #fff; color: #161A1F; border: 1px solid #D8D4C8; }
+    button.range-btn.active { background: #161A1F; color: #fff; }
+    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .current-box { background: #fff; border-radius: 8px; padding: 18px; text-align: center; margin-bottom: 16px; }
+    .current-box .value { font-size: 28px; font-weight: bold; color: #5B7C99; }
+    .current-box .label { font-size: 11px; color: #8A8578; margin-top: 4px; }
+    .range-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .chart-wrap { background: #fff; border-radius: 8px; padding: 14px; height: 260px; }
+    table.weight-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+    table.weight-table th { text-align: left; padding: 8px 10px; background: #E4E0D3; border-bottom: 2px solid #D8D4C8; }
+    table.weight-table td { padding: 8px 10px; border-bottom: 1px solid #E4E0D3; }
+    .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
+    .del-btn { background: transparent; color: #B3402F; border: none; cursor: pointer; font-size: 12px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Weight</h1>
+    <nav><a href="/">Meal Plan</a><a href="/foods">My Foods</a><a href="/activity">Activity</a><a href="/logout">Log out</a></nav>
+  </header>
+  <div class="container">
+
+    <div class="card">
+      <h2>Log today's weight</h2>
+      <div id="logError"></div>
+      <div class="form-row">
+        <input type="number" id="weightInput" placeholder="Weight (kg)" step="0.1" style="flex:1;min-width:120px;" />
+        <input type="date" id="dateInput" style="flex:1;min-width:150px;" />
+        <button onclick="logWeight()">Save</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="currentWeightBox"></div>
+
+      <div class="range-row">
+        <button class="range-btn" id="rangeBtn-week" onclick="setRange('week')">Week</button>
+        <button class="range-btn" id="rangeBtn-month" onclick="setRange('month')">Month</button>
+        <button class="range-btn" id="rangeBtn-year" onclick="setRange('year')">Year</button>
+      </div>
+      <div class="chart-wrap"><canvas id="weightChart"></canvas></div>
+    </div>
+
+    <div class="card">
+      <h2>History</h2>
+      <div id="historyTable"></div>
+    </div>
+
+  </div>
+
+  <script>
+    let history = [];
+    let chart = null;
+    let currentRange = 'month';
+
+    function todayStr() {
+      const d = new Date();
+      return d.toISOString().slice(0, 10);
+    }
+    document.getElementById('dateInput').value = todayStr();
+
+    async function loadHistory() {
+      const res = await fetch('/api/weight');
+      history = await res.json();
+      renderCurrent();
+      renderChart();
+      renderHistoryTable();
+    }
+
+    async function logWeight() {
+      const errorBox = document.getElementById('logError');
+      errorBox.innerHTML = '';
+
+      const weight_kg = document.getElementById('weightInput').value;
+      const logged_date = document.getElementById('dateInput').value;
+
+      if (!weight_kg || !logged_date) {
+        errorBox.innerHTML = '<div class="error-box">Enter both a weight and a date.</div>';
+        return;
+      }
+
+      const res = await fetch('/api/weight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weight_kg, logged_date }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        errorBox.innerHTML = `<div class="error-box">${data.error || 'Could not save this entry.'}</div>`;
+        return;
+      }
+
+      document.getElementById('weightInput').value = '';
+      await loadHistory();
+    }
+
+    async function deleteEntry(id) {
+      await fetch(`/api/weight/${id}`, { method: 'DELETE' });
+      await loadHistory();
+    }
+
+    function renderCurrent() {
+      const box = document.getElementById('currentWeightBox');
+      if (history.length === 0) {
+        box.innerHTML = '<div class="empty-state">No entries yet - log your first weight above.</div>';
+        return;
+      }
+      const latest = history[history.length - 1];
+      box.innerHTML = `
+        <div class="current-box">
+          <div class="value">${latest.weight_kg} kg</div>
+          <div class="label">Current (as of ${latest.logged_date})</div>
+        </div>
+      `;
+    }
+
+    function setRange(range) {
+      currentRange = range;
+      ['week', 'month', 'year'].forEach((r) => {
+        document.getElementById(`rangeBtn-${r}`).classList.toggle('active', r === range);
+      });
+      renderChart();
+    }
+
+    function filterByRange(entries, range) {
+      const now = new Date();
+      const cutoff = new Date(now);
+      if (range === 'week') cutoff.setDate(now.getDate() - 7);
+      else if (range === 'month') cutoff.setMonth(now.getMonth() - 1);
+      else cutoff.setFullYear(now.getFullYear() - 1);
+      return entries.filter((e) => new Date(e.logged_date) >= cutoff);
+    }
+
+    function renderChart() {
+      const canvas = document.getElementById('weightChart');
+      const filtered = filterByRange(history, currentRange);
+      setRange(currentRange); // keep the active button styled correctly on re-render
+
+      if (chart) chart.destroy();
+      chart = new Chart(canvas, {
+        type: 'line',
+        data: {
+          labels: filtered.map((e) => e.logged_date),
+          datasets: [{
+            label: 'Weight (kg)',
+            data: filtered.map((e) => e.weight_kg),
+            borderColor: '#5B7C99',
+            backgroundColor: 'rgba(91,124,153,0.15)',
+            tension: 0.25,
+            fill: true,
+            pointRadius: 3,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: { y: { ticks: { callback: (v) => `${v} kg` } } },
+        },
+      });
+    }
+
+    function renderHistoryTable() {
+      const container = document.getElementById('historyTable');
+      if (history.length === 0) {
+        container.innerHTML = '<div class="empty-state">Nothing logged yet.</div>';
+        return;
+      }
+      const rows = [...history].reverse().map((e) => `
+        <tr>
+          <td>${e.logged_date}</td>
+          <td>${e.weight_kg} kg</td>
+          <td><button class="del-btn" onclick="deleteEntry(${e.id})">Delete</button></td>
+        </tr>
+      `).join('');
+      container.innerHTML = `
+        <table class="weight-table">
+          <thead><tr><th>Date</th><th>Weight</th><th></th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    setRange('month');
+    loadHistory();
+  </script>
+</body>
+</html>

@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS plan_meals (
     protein_g REAL NOT NULL DEFAULT 0,
     carbs_g REAL NOT NULL DEFAULT 0,
     fat_g REAL NOT NULL DEFAULT 0,
+    grams REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -89,6 +90,15 @@ CREATE TABLE IF NOT EXISTS activity_log (
     active_calories REAL NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     UNIQUE(user_id, activity_date)
+);
+
+CREATE TABLE IF NOT EXISTS weight_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    weight_kg REAL NOT NULL,
+    logged_date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(user_id, logged_date)
 );
 
 CREATE TABLE IF NOT EXISTS usage_counters (
@@ -156,6 +166,7 @@ CREATE TABLE IF NOT EXISTS plan_meals (
     protein_g DOUBLE PRECISION NOT NULL DEFAULT 0,
     carbs_g DOUBLE PRECISION NOT NULL DEFAULT 0,
     fat_g DOUBLE PRECISION NOT NULL DEFAULT 0,
+    grams DOUBLE PRECISION,
     created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
 );
 
@@ -168,6 +179,15 @@ CREATE TABLE IF NOT EXISTS activity_log (
     UNIQUE(user_id, activity_date)
 );
 
+CREATE TABLE IF NOT EXISTS weight_log (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    weight_kg DOUBLE PRECISION NOT NULL,
+    logged_date TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS'),
+    UNIQUE(user_id, logged_date)
+);
+
 CREATE TABLE IF NOT EXISTS usage_counters (
     day TEXT NOT NULL,
     kind TEXT NOT NULL,
@@ -178,13 +198,15 @@ CREATE TABLE IF NOT EXISTS usage_counters (
 
 # Columns added after the original release - ALTER TABLE ADD COLUMN keeps
 # existing rows (and existing databases) intact rather than requiring a
-# fresh database every time the schema grows. (SQLite only: PostgreSQL databases
-# are created with the full schema.)
+# fresh database every time the schema grows. Runs against both SQLite and
+# PostgreSQL, so a live Postgres deployment picks up new columns too instead
+# of only ever getting them on a brand-new database.
 MIGRATIONS = [
     ("foods", "calcium_mg_per_100g", "REAL NOT NULL DEFAULT 0"),
     ("foods", "vitamin_c_mg_per_100g", "REAL NOT NULL DEFAULT 0"),
     ("foods", "omega3_g_per_100g", "REAL NOT NULL DEFAULT 0"),
     ("foods", "meal_category", "TEXT NOT NULL DEFAULT 'other'"),
+    ("plan_meals", "grams", "REAL"),
 ]
 
 # Tables whose primary key column is called id, so INSERTs can return the new id on PostgreSQL.
@@ -253,10 +275,20 @@ def get_connection(db_path: Path = None):
     return conn
 
 
-def _run_migrations(conn: sqlite3.Connection) -> None:
+def _existing_columns(conn, table: str, is_postgres: bool) -> set:
+    if is_postgres:
+        rows = conn.execute(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = ?",
+            (table,),
+        ).fetchall()
+        return {row["column_name"] for row in rows}
+    return {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
+
+
+def _run_migrations(conn) -> None:
+    is_postgres = isinstance(conn, PgConnection)
     for table, column, coltype in MIGRATIONS:
-        existing_columns = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
-        if column not in existing_columns:
+        if column not in _existing_columns(conn, table, is_postgres):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
     conn.commit()
 
@@ -270,6 +302,6 @@ def init_db(db_path: Path = None) -> None:
         else:
             conn.executescript(SQLITE_SCHEMA)
             conn.commit()
-            _run_migrations(conn)
+        _run_migrations(conn)
     finally:
         conn.close()

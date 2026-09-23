@@ -45,6 +45,7 @@ from plan_storage import save_plan, get_latest_plan, update_plan_meal, PlanMealN
 from apple_health_parser import parse_upload
 from activity_storage import save_activity_log, get_activity_log
 from screenshot_parser import extract_active_calories, ScreenshotParseError
+from weight_storage import save_weight_entry, get_weight_history, get_latest_weight, delete_weight_entry
 import re
 
 ROOT = Path(__file__).parent.parent
@@ -194,13 +195,23 @@ def generate_plan():
     except (ValueError, TypeError):
         return jsonify({"error": "weight_kg, height_cm, age, and days must be numbers"}), 400
 
+    calorie_override = None
+    if data.get("calorie_override") not in (None, ""):
+        try:
+            calorie_override = float(data["calorie_override"])
+        except (ValueError, TypeError):
+            return jsonify({"error": "calorie_override must be a number"}), 400
+        if not (500 <= calorie_override <= 10000):
+            return jsonify({"error": "calorie_override must be between 500 and 10000"}), 400
+
     if not (1 <= days <= 14):
         return jsonify({"error": "days must be between 1 and 14"}), 400
     if not (20 <= weight_kg <= 500 and 50 <= height_cm <= 260 and 5 <= age <= 120):
         return jsonify({"error": "weight_kg (20-500), height_cm (50-260) and age (5-120) must be realistic values"}), 400
 
     profile_targets = build_profile_targets(
-        weight_kg, height_cm, age, data["sex"], data["activity_level"], data["goal"]
+        weight_kg, height_cm, age, data["sex"], data["activity_level"], data["goal"],
+        calorie_override=calorie_override,
     )
 
     week_plan = build_week_plan(
@@ -291,10 +302,14 @@ def edit_plan_meal(meal_id):
                 "carbs_g": round(food["carbs_per_100g"] * multiplier, 1),
                 "fat_g": round(food["fat_per_100g"] * multiplier, 1),
                 "food_id": food["id"],
+                "grams": grams,
             }
         else:
             # Manual entry: just a name and a calorie count - macros
-            # default to 0 since none were supplied.
+            # default to 0 since none were supplied. Grams is optional here
+            # too - useful while trial-weighing portions before they're in
+            # the food library yet, but it's a label only, not part of the
+            # calorie math (there's no per-100g figure to scale from).
             food_name = (data.get("food_name") or "").strip()
             if not food_name:
                 return jsonify({"error": "food_name is required for a manual entry"}), 400
@@ -303,6 +318,13 @@ def edit_plan_meal(meal_id):
             except (ValueError, TypeError, KeyError):
                 return jsonify({"error": "calories must be a number"}), 400
 
+            manual_grams = None
+            if data.get("grams") not in (None, ""):
+                try:
+                    manual_grams = float(data["grams"])
+                except (ValueError, TypeError):
+                    return jsonify({"error": "grams must be a number"}), 400
+
             updated_values = {
                 "food_name": food_name,
                 "calories": calories,
@@ -310,6 +332,7 @@ def edit_plan_meal(meal_id):
                 "carbs_g": 0,
                 "fat_g": 0,
                 "food_id": None,
+                "grams": manual_grams,
             }
 
         result = update_plan_meal(conn, int(current_user.id), meal_id, updated_values)
@@ -435,6 +458,72 @@ def remove_food(food_id):
         return jsonify({"deleted": food_id})
     except FoodNotFound:
         return jsonify({"error": "Food not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/weight")
+@login_required
+def weight_page():
+    return render_template("weight.html")
+
+
+@app.route("/api/weight", methods=["GET"])
+@login_required
+def list_weight():
+    conn = get_connection()
+    try:
+        return jsonify(get_weight_history(conn, int(current_user.id)))
+    finally:
+        conn.close()
+
+
+@app.route("/api/weight/latest", methods=["GET"])
+@login_required
+def latest_weight():
+    conn = get_connection()
+    try:
+        entry = get_latest_weight(conn, int(current_user.id))
+        return jsonify(entry)  # null if nothing logged yet
+    finally:
+        conn.close()
+
+
+@app.route("/api/weight", methods=["POST"])
+@login_required
+def log_weight():
+    data = request.get_json() or {}
+    date_str = (data.get("logged_date") or "").strip()
+
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
+        return jsonify({"error": "logged_date must be in YYYY-MM-DD format"}), 400
+    try:
+        datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return jsonify({"error": "logged_date must be a real calendar date"}), 400
+
+    try:
+        weight_kg = float(data.get("weight_kg"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "weight_kg must be a number"}), 400
+    if not (20 <= weight_kg <= 500):
+        return jsonify({"error": "weight_kg must be a realistic value (20-500)"}), 400
+
+    conn = get_connection()
+    try:
+        entry = save_weight_entry(conn, int(current_user.id), weight_kg, date_str)
+        return jsonify(entry), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/weight/<int:entry_id>", methods=["DELETE"])
+@login_required
+def remove_weight(entry_id):
+    conn = get_connection()
+    try:
+        delete_weight_entry(conn, int(current_user.id), entry_id)
+        return jsonify({"deleted": entry_id})
     finally:
         conn.close()
 

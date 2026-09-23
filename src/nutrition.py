@@ -74,16 +74,29 @@ def calculate_macros(calorie_target: int, goal: str) -> dict:
 
 
 def build_profile_targets(weight_kg: float, height_cm: float, age: int, sex: str,
-                            activity_level: str, goal: str) -> dict:
+                            activity_level: str, goal: str, calorie_override: float = None) -> dict:
     bmr = calculate_bmr(weight_kg, height_cm, age, sex)
     tdee = calculate_tdee(bmr, activity_level)
-    calorie_result = calculate_calorie_target(tdee, goal)
-    macros = calculate_macros(calorie_result["calorie_target"], goal)
+
+    if calorie_override is not None:
+        # A manually chosen target still respects the safety floor - the
+        # floor exists to protect the person, not just to correct the formula.
+        floor_applied = calorie_override < SAFE_MINIMUM_CALORIES
+        calorie_target = round(max(calorie_override, SAFE_MINIMUM_CALORIES))
+        overridden = True
+    else:
+        calorie_result = calculate_calorie_target(tdee, goal)
+        calorie_target = calorie_result["calorie_target"]
+        floor_applied = calorie_result["floor_applied"]
+        overridden = False
+
+    macros = calculate_macros(calorie_target, goal)
 
     return {
         "bmr": round(bmr),
         "tdee": round(tdee),
-        "calorie_target": calorie_result["calorie_target"],
-        "floor_applied": calorie_result["floor_applied"],
+        "calorie_target": calorie_target,
+        "floor_applied": floor_applied,
+        "overridden": overridden,
         "macros": macros,
     }

@@ -24,8 +24,8 @@ def save_plan(conn, user_id: int, week_plan: list) -> str:
             conn.execute(
                 """
                 INSERT INTO plan_meals
-                    (user_id, plan_batch, day_number, meal_type, food_id, food_name, calories, protein_g, carbs_g, fat_g)
-                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)
+                    (user_id, plan_batch, day_number, meal_type, food_id, food_name, calories, protein_g, carbs_g, fat_g, grams)
+                VALUES (?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, NULL)
                 """,
                 (
                     user_id, plan_batch, day["day"], meal["meal_type"],
@@ -91,6 +91,7 @@ def get_latest_plan(conn, user_id: int) -> list:
             "protein_g": row["protein_g"],
             "carbs_g": row["carbs_g"],
             "fat_g": row["fat_g"],
+            "grams": row["grams"],
         })
 
     plan = list(days.values())
@@ -114,13 +115,13 @@ def update_plan_meal(conn, user_id: int, meal_id: int, updated_values: dict) -> 
     conn.execute(
         """
         UPDATE plan_meals
-        SET food_name = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, food_id = ?
+        SET food_name = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, food_id = ?, grams = ?
         WHERE id = ? AND user_id = ?
         """,
         (
             updated_values["food_name"], updated_values["calories"],
             updated_values.get("protein_g", 0), updated_values.get("carbs_g", 0), updated_values.get("fat_g", 0),
-            updated_values.get("food_id"),
+            updated_values.get("food_id"), updated_values.get("grams"),
             meal_id, user_id,
         ),
     )
@@ -149,6 +150,7 @@ def update_plan_meal(conn, user_id: int, meal_id: int, updated_values: dict) -> 
             "protein_g": updated_row["protein_g"],
             "carbs_g": updated_row["carbs_g"],
             "fat_g": updated_row["fat_g"],
+            "grams": updated_row["grams"],
         },
         "day_totals": day_totals,
     }

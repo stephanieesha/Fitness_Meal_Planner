@@ -24,6 +24,11 @@
     .stat-box .value { font-size: 18px; font-weight: bold; color: #5B7C99; }
     .stat-box .label { font-size: 10px; color: #8A8578; margin-top: 4px; }
     .floor-warning { background: #F0E4CF; color: #6B4E1F; padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+    .override-note { font-size: 11px; color: #5B7C99; margin-top: 4px; }
+    .weight-banner { background: #F3F1EA; border-radius: 10px; padding: 14px 22px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+    .weight-banner .value { font-size: 16px; font-weight: bold; color: #5B7C99; }
+    .weight-banner a { color: #5B7C99; text-decoration: none; font-size: 12px; }
+    .day-total-cell-clean { font-weight: 600; text-align: right; }
     .summary-text { font-size: 14px; color: #4A453C; margin-bottom: 16px; font-style: italic; }
 
     table.plan-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -64,10 +69,13 @@
     <div>
       <a href="/foods" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">My Foods</a>
       <a href="/activity" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Activity</a>
+      <a href="/weight" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Weight</a>
       <a href="/logout">Log out ({{ current_user.email }})</a>
     </div>
   </header>
   <div class="container">
+
+    <div id="currentWeightBanner" class="no-print"></div>
 
     <div class="card no-print">
       <h2>Your profile</h2>
@@ -102,7 +110,10 @@
         </select>
         <input type="hidden" id="days" value="5" />
       </div>
-      <p style="font-size:12px;color:#999;margin-top:-6px;">Plans always run Monday through Friday.</p>
+      <div class="form-row">
+        <input type="number" id="calorieOverride" placeholder="Override calories (optional)" style="flex:1;" />
+      </div>
+      <p style="font-size:12px;color:#999;margin-top:-6px;">Plans always run Monday through Friday. Leave the calorie field blank to use the calculated target, or fill it in to set your own.</p>
       <button onclick="generatePlan()">Generate plan</button>
     </div>
 
@@ -154,6 +165,8 @@
         region: document.getElementById('region').value,
         days: document.getElementById('days').value || 7,
       };
+      const override = document.getElementById('calorieOverride').value;
+      if (override) payload.calorie_override = override;
 
       try {
         const res = await fetch('/api/generate-plan', {
@@ -190,9 +203,26 @@
         <div class="stat-box"><div class="value">${t.macros.carbs_g}g</div><div class="label">Carbs</div></div>
         <div class="stat-box"><div class="value">${t.macros.fat_g}g</div><div class="label">Fat</div></div>
       </div>`;
+      if (t.overridden) html += `<p class="override-note">Using your manually set calorie target instead of the calculated one.</p>`;
       if (summary) html += `<p class="summary-text">${esc(summary)}</p>`;
       html += '</div>';
       document.getElementById('targetsCard').innerHTML = html;
+    }
+
+    async function loadWeightBanner() {
+      const res = await fetch('/api/weight/latest');
+      const latest = await res.json();
+      const banner = document.getElementById('currentWeightBanner');
+      if (!latest) {
+        banner.innerHTML = `<div class="weight-banner"><span>No weight logged yet.</span><a href="/weight">Log your weight &rarr;</a></div>`;
+        return;
+      }
+      banner.innerHTML = `
+        <div class="weight-banner">
+          <span>Current weight: <span class="value">${latest.weight_kg} kg</span> <span style="color:#8A8578;">(${latest.logged_date})</span></span>
+          <a href="/weight">View progress &rarr;</a>
+        </div>
+      `;
     }
 
     function findMeal(day, mealType) {
@@ -213,7 +243,7 @@
         html += `<tr><td class="day-label">${weekdayLabel(day.day)}</td>`;
         MEAL_TYPES.forEach((mt) => {
           const meal = findMeal(day, mt);
-          html += `<td>${meal ? renderCell(meal) : '<span style="color:#ccc;">-</span>'}</td>`;
+          html += `<td>${meal ? renderCell(meal, 'plan') : '<span style="color:#ccc;">-</span>'}</td>`;
         });
         html += `<td class="day-total-cell">${day.totals.calories} kcal<br>P:${day.totals.protein_g}g C:${day.totals.carbs_g}g F:${day.totals.fat_g}g</td>`;
         html += '</tr>';
@@ -223,12 +253,21 @@
       document.getElementById('planCard').innerHTML = html;
     }
 
-    function renderCell(meal) {
+    // ctx distinguishes the editable plan table ('plan') from the clean
+    // print/screenshot table ('clean') so the same meal can have an
+    // independent edit box open in either view without id collisions.
+    function cellId(mealId, ctx) { return `${ctx}-cell-${mealId}`; }
+
+    function gramsLabel(meal) {
+      return meal.grams ? ` &middot; ${meal.grams}g` : '';
+    }
+
+    function renderCell(meal, ctx) {
       return `
-        <div id="cell-${meal.id}">
+        <div id="${cellId(meal.id, ctx)}">
           <div class="cell-meal-name">${esc(meal.name)}</div>
-          <div class="cell-meal-cal">${meal.calories} kcal</div>
-          <button class="edit-link" onclick="showEditBox(${meal.id})">Edit</button>
+          <div class="cell-meal-cal">${meal.calories} kcal${gramsLabel(meal)}</div>
+          <button class="edit-link no-print" onclick="showEditBox(${meal.id}, '${ctx}')">Edit</button>
         </div>
       `;
     }
@@ -252,18 +291,15 @@
 
       html += '<table class="clean-table"><thead><tr><th>Days</th>';
       MEAL_TYPES.forEach((mt) => { html += `<th>${mt}</th>`; });
-      html += '</tr></thead><tbody>';
+      html += '<th>Total</th></tr></thead><tbody>';
 
       currentPlan.forEach((day) => {
         html += `<tr><td class="day-letter">${weekdayLetter(day.day)}</td>`;
         MEAL_TYPES.forEach((mt) => {
           const meal = findMeal(day, mt);
-          if (meal) {
-            html += `<td>${esc(meal.name)}<div class="clean-cal">${meal.calories} kcal</div></td>`;
-          } else {
-            html += '<td></td>';
-          }
+          html += `<td>${meal ? renderCell(meal, 'clean') : ''}</td>`;
         });
+        html += `<td class="day-total-cell-clean">${day.totals.calories} kcal</td>`;
         html += '</tr>';
       });
 
@@ -271,65 +307,69 @@
       container.innerHTML = html;
     }
 
-    function showEditBox(mealId) {
-      const cell = document.getElementById(`cell-${mealId}`);
+    function showEditBox(mealId, ctx) {
+      const cell = document.getElementById(cellId(mealId, ctx));
+      const meal = currentPlan.flatMap((d) => d.meals).find((m) => m.id === mealId);
       const foodOptions = myFoods.map((f) => `<option value="${f.id}">${esc(f.name)} (${f.calories_per_100g} kcal/100g)</option>`).join('');
+      const prefillGrams = (meal && meal.grams) ? meal.grams : 100;
 
       cell.innerHTML += `
-        <div class="edit-box" id="editbox-${mealId}">
+        <div class="edit-box no-print" id="${ctx}-editbox-${mealId}">
           <div class="edit-mode-toggle">
-            <a onclick="setEditMode(${mealId}, 'library')" id="mode-library-${mealId}"><b>From my foods</b></a>
-            <a onclick="setEditMode(${mealId}, 'manual')" id="mode-manual-${mealId}">Enter manually</a>
+            <a onclick="setEditMode(${mealId}, '${ctx}', 'library')" id="${ctx}-mode-library-${mealId}"><b>From my foods</b></a>
+            <a onclick="setEditMode(${mealId}, '${ctx}', 'manual')" id="${ctx}-mode-manual-${mealId}">Enter manually</a>
           </div>
-          <div id="library-fields-${mealId}">
-            <select id="foodSelect-${mealId}">${foodOptions || '<option value="">No foods in your library yet</option>'}</select>
-            <input type="number" id="grams-${mealId}" placeholder="Grams" value="100" />
+          <div id="${ctx}-library-fields-${mealId}">
+            <select id="${ctx}-foodSelect-${mealId}">${foodOptions || '<option value="">No foods in your library yet</option>'}</select>
+            <input type="number" id="${ctx}-grams-${mealId}" placeholder="Grams" value="${prefillGrams}" />
           </div>
-          <div id="manual-fields-${mealId}" style="display:none;">
-            <input type="text" id="manualName-${mealId}" placeholder="Food name" />
-            <input type="number" id="manualCal-${mealId}" placeholder="Calories" />
+          <div id="${ctx}-manual-fields-${mealId}" style="display:none;">
+            <input type="text" id="${ctx}-manualName-${mealId}" placeholder="Food name" />
+            <input type="number" id="${ctx}-manualCal-${mealId}" placeholder="Calories" />
+            <input type="number" id="${ctx}-manualGrams-${mealId}" placeholder="Grams (optional, for your notes)" />
           </div>
           <div class="edit-actions">
-            <button class="small" onclick="saveEdit(${mealId})">Save</button>
-            <button class="small secondary" onclick="cancelEdit(${mealId})">Cancel</button>
+            <button class="small" onclick="saveEdit(${mealId}, '${ctx}')">Save</button>
+            <button class="small secondary" onclick="cancelEdit()">Cancel</button>
           </div>
         </div>
       `;
     }
 
-    function setEditMode(mealId, mode) {
-      document.getElementById(`library-fields-${mealId}`).style.display = mode === 'library' ? 'block' : 'none';
-      document.getElementById(`manual-fields-${mealId}`).style.display = mode === 'manual' ? 'block' : 'none';
-      document.getElementById(`mode-library-${mealId}`).innerHTML = mode === 'library' ? '<b>From my foods</b>' : 'From my foods';
-      document.getElementById(`mode-manual-${mealId}`).innerHTML = mode === 'manual' ? '<b>Enter manually</b>' : 'Enter manually';
+    function setEditMode(mealId, ctx, mode) {
+      document.getElementById(`${ctx}-library-fields-${mealId}`).style.display = mode === 'library' ? 'block' : 'none';
+      document.getElementById(`${ctx}-manual-fields-${mealId}`).style.display = mode === 'manual' ? 'block' : 'none';
+      document.getElementById(`${ctx}-mode-library-${mealId}`).innerHTML = mode === 'library' ? '<b>From my foods</b>' : 'From my foods';
+      document.getElementById(`${ctx}-mode-manual-${mealId}`).innerHTML = mode === 'manual' ? '<b>Enter manually</b>' : 'Enter manually';
     }
 
-    function cancelEdit(mealId) {
+    function cancelEdit() {
       renderPlanTable(); renderCleanTable();
     }
 
-    async function saveEdit(mealId) {
-      const isManual = document.getElementById(`manual-fields-${mealId}`).style.display === 'block';
+    async function saveEdit(mealId, ctx) {
+      const isManual = document.getElementById(`${ctx}-manual-fields-${mealId}`).style.display === 'block';
       let payload;
 
       if (isManual) {
         payload = {
-          food_name: document.getElementById(`manualName-${mealId}`).value.trim(),
-          calories: document.getElementById(`manualCal-${mealId}`).value,
+          food_name: document.getElementById(`${ctx}-manualName-${mealId}`).value.trim(),
+          calories: document.getElementById(`${ctx}-manualCal-${mealId}`).value,
+          grams: document.getElementById(`${ctx}-manualGrams-${mealId}`).value || null,
         };
         if (!payload.food_name || !payload.calories) {
           alert('Enter both a food name and calories.');
           return;
         }
       } else {
-        const foodId = document.getElementById(`foodSelect-${mealId}`).value;
+        const foodId = document.getElementById(`${ctx}-foodSelect-${mealId}`).value;
         if (!foodId) {
           alert('Select a food, or switch to manual entry.');
           return;
         }
         payload = {
           food_id: foodId,
-          grams: document.getElementById(`grams-${mealId}`).value || 100,
+          grams: document.getElementById(`${ctx}-grams-${mealId}`).value || 100,
         };
       }
 
@@ -365,6 +405,7 @@
       }
     }
 
+    loadWeightBanner();
     loadExistingPlan();
   </script>
 </body>
