@@ -40,7 +40,7 @@ from food_library import (
     add_food, get_foods, get_food, delete_food, update_food_category, update_food, nutrition_for,
     FoodNotFound, InvalidCategory, InvalidFoodData, MEAL_CATEGORIES,
 )
-from day_log import add_day_entry, get_day, delete_day_entry, DayEntryNotFound, InvalidDayEntry
+from day_log import add_day_entry, get_day, get_recent_days, delete_day_entry, DayEntryNotFound, InvalidDayEntry
 from nutrition_lookup import search_food_nutrition, FoodLookupError
 from plan_storage import save_plan, get_latest_plan, update_plan_meal, PlanMealNotFound
 from apple_health_parser import parse_upload
@@ -454,6 +454,22 @@ def edit_food(food_id):
         return jsonify({"error": str(e)}), 400
     except FoodNotFound:
         return jsonify({"error": "Food not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/history")
+@login_required
+def history_page():
+    return render_template("history.html")
+
+
+@app.route("/api/day-log/days", methods=["GET"])
+@login_required
+def day_log_days():
+    conn = get_connection()
+    try:
+        return jsonify(get_recent_days(conn, int(current_user.id)))
     finally:
         conn.close()
 

@@ -113,3 +113,16 @@ def delete_day_entry(conn, user_id: int, entry_id: int) -> None:
     conn.commit()
     if cursor.rowcount == 0:
         raise DayEntryNotFound(f"No entry with id {entry_id} for this user")
+
+
+def get_recent_days(conn, user_id: int, limit: int = 60) -> list:
+    """Every day with at least one entry, newest first, with its total and item count."""
+    rows = conn.execute(
+        """
+        SELECT log_date, SUM(calories) AS total, COUNT(*) AS items
+        FROM day_log WHERE user_id = ?
+        GROUP BY log_date ORDER BY log_date DESC LIMIT ?
+        """,
+        (user_id, limit),
+    ).fetchall()
+    return [{"date": r["log_date"], "total_calories": round(r["total"], 1), "items": r["items"]} for r in rows]

@@ -49,29 +49,6 @@
     .qty-unit { font-size: 12px; color: #4A453C; white-space: nowrap; }
     .qty-preview { font-size: 11px; color: #5B7C99; font-weight: 600; margin-bottom: 6px; }
 
-    /* Daily calorie total */
-    .day-nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
-    .day-nav input { flex: 0 1 170px; min-width: 140px; }
-    .day-nav button { padding: 7px 12px; font-size: 12px; }
-    .range-inputs { display: flex; gap: 4px; align-items: center; justify-content: center; }
-    .range-inputs input { width: 64px; min-width: 0; flex: none; padding: 4px; font-size: 13px; text-align: center; }
-    @media (max-width: 480px) {
-      #dayStats .stat-box.range-box { order: 5; flex-basis: 100%; }
-    }
-    .status-under { color: #8A6A1F !important; }
-    .status-in { color: #3F7A4E !important; }
-    .status-over { color: #8A5049 !important; }
-    .add-entry { background: #fff; border: 1px solid #E4E0D3; border-radius: 8px; padding: 12px; margin-bottom: 14px; }
-    .add-entry .form-row { align-items: center; }
-    .entry-group-title { font-size: 12px; font-weight: 600; color: #5B7C99; margin: 12px 0 4px; }
-    .entry-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #E4E0D3; font-size: 13px; }
-    .entry-row .entry-amount { color: #8A8578; font-size: 12px; }
-    .entry-row .entry-cal { font-weight: 600; white-space: nowrap; }
-    .remove-x { background: none; color: #8A5049; padding: 2px 8px; font-size: 16px; line-height: 1; }
-    .remove-x:hover { background: #F4DEDC; }
-    .day-footer { display: flex; justify-content: space-between; font-weight: 700; padding-top: 10px; font-size: 14px; }
-    .link-btn { background: none; color: #5B7C99; padding: 0; font-size: 12px; text-decoration: underline; border-radius: 0; }
-    .link-btn:hover { background: none; color: #161A1F; }
 
     /* Clean, screenshot/print-friendly view - no edit UI, matches a
        simple weekday-letter food timetable format. */
@@ -95,6 +72,7 @@
   <header class="no-print">
     <h1>Meal Planner</h1>
     <div>
+      <a href="/history" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Meal History</a>
       <a href="/foods" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">My Foods</a>
       <a href="/activity" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Activity</a>
       <a href="/weight" style="color:#C9D4DE;text-decoration:none;font-size:13px;margin-right:16px;">Weight</a>
@@ -147,61 +125,6 @@
 
     <div id="targetsCard" class="no-print"></div>
     <div id="planCard" class="no-print"></div>
-
-    <div class="card no-print" id="dayTotalCard">
-      <h2>Daily calorie total</h2>
-      <div class="day-nav">
-        <button class="secondary" onclick="shiftDay(-1)">&larr; Prev</button>
-        <input type="date" id="dayDate" onchange="loadDay()" />
-        <button class="secondary" onclick="shiftDay(1)">Next &rarr;</button>
-        <button class="secondary" onclick="setToday()">Today</button>
-      </div>
-      <div class="stat-row" id="dayStats"></div>
-      <div class="add-entry">
-        <div id="dayError"></div>
-        <div id="dayLibraryFields">
-          <div class="form-row">
-            <select id="dayMeal" style="flex:0 1 130px;">
-              <option value="breakfast">Breakfast</option>
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="snack">Snack</option>
-              <option value="other">Other</option>
-            </select>
-            <select id="dayFood" onchange="onDayFoodChange()" style="flex:2 1 220px;"></select>
-          </div>
-          <div class="form-row">
-            <div class="qty-row" style="flex:1;margin:0;">
-              <input type="number" id="dayQty" step="any" min="0" placeholder="Amount" oninput="updateDayPreview()" style="flex:0 1 110px;min-width:80px;" />
-              <span class="qty-unit" id="dayUnit"></span>
-              <span class="qty-preview" id="dayPreview" style="margin:0;"></span>
-            </div>
-            <button onclick="addDayEntry()">Add</button>
-          </div>
-          <button class="link-btn" onclick="setDayMode('manual')">Something not in my foods? Enter it manually</button>
-        </div>
-        <div id="dayManualFields" style="display:none;">
-          <div class="form-row">
-            <select id="dayMealManual" style="flex:0 1 130px;">
-              <option value="breakfast">Breakfast</option>
-              <option value="lunch">Lunch</option>
-              <option value="dinner">Dinner</option>
-              <option value="snack">Snack</option>
-              <option value="other" selected>Other</option>
-            </select>
-            <input type="text" id="dayManualName" placeholder="Food name" style="flex:2 1 180px;" />
-          </div>
-          <div class="form-row">
-            <input type="number" id="dayManualQty" step="any" min="0" placeholder="Amount (optional)" />
-            <input type="text" id="dayManualUnit" placeholder="Unit (g, slice...)" list="unitOptions" />
-            <input type="number" id="dayManualCal" step="any" min="0" placeholder="Calories" />
-            <button onclick="addDayEntry()">Add</button>
-          </div>
-          <button class="link-btn" onclick="setDayMode('library')">Pick from my foods instead</button>
-        </div>
-      </div>
-      <div id="dayEntries"></div>
-    </div>
     <datalist id="unitOptions">
       <option value="g"></option><option value="ml"></option><option value="slice"></option><option value="piece"></option>
       <option value="egg"></option><option value="tbsp"></option><option value="cup"></option><option value="serving"></option>
@@ -548,193 +471,8 @@
       }
     }
 
-    // ---------- Daily calorie total ----------
-    let dayMode = 'library';
-    let activityByDate = {};
-
-    function readTarget() {
-      try {
-        const saved = JSON.parse(localStorage.getItem('dailyTargetRange') || 'null');
-        if (saved && saved.min > 0 && saved.max > 0) return saved;
-      } catch (e) { /* storage unavailable - use the defaults */ }
-      return { min: 1200, max: 1500 };
-    }
-
-    function saveTarget() {
-      const min = parseFloat(document.getElementById('targetMin').value);
-      const max = parseFloat(document.getElementById('targetMax').value);
-      if (!(min > 0 && max >= min)) return;
-      try { localStorage.setItem('dailyTargetRange', JSON.stringify({ min, max })); } catch (e) { /* not saved, still applied */ }
-      loadDay();
-    }
-
-    function isoDate(d) {
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-    }
-
-    function setToday() {
-      document.getElementById('dayDate').value = isoDate(new Date());
-      loadDay();
-    }
-
-    function shiftDay(delta) {
-      const input = document.getElementById('dayDate');
-      const d = input.value ? new Date(input.value + 'T12:00:00') : new Date();
-      d.setDate(d.getDate() + delta);
-      input.value = isoDate(d);
-      loadDay();
-    }
-
-    function setDayMode(mode) {
-      dayMode = mode;
-      document.getElementById('dayLibraryFields').style.display = mode === 'library' ? 'block' : 'none';
-      document.getElementById('dayManualFields').style.display = mode === 'manual' ? 'block' : 'none';
-      document.getElementById('dayError').innerHTML = '';
-    }
-
-    function fillDayFoodSelect() {
-      const select = document.getElementById('dayFood');
-      const current = Number(select.value) || null;
-      select.innerHTML = foodOptionsHtml(current);
-      onDayFoodChange();
-    }
-
-    function onDayFoodChange() {
-      const food = foodById(document.getElementById('dayFood').value);
-      document.getElementById('dayUnit').textContent = food ? food.serving_unit : '';
-      document.getElementById('dayQty').value = food ? food.serving_size : '';
-      if (food) document.getElementById('dayMeal').value = food.meal_category;
-      updateDayPreview();
-    }
-
-    function updateDayPreview() {
-      const food = foodById(document.getElementById('dayFood').value);
-      const qty = parseFloat(document.getElementById('dayQty').value);
-      document.getElementById('dayPreview').textContent = food && qty >= 0 ? `= ${num(food.calories_per_100g * qty / 100)} kcal` : '';
-    }
-
-    async function loadActivity() {
-      try {
-        const res = await fetch('/api/activity');
-        if (!res.ok) return;
-        (await res.json()).forEach((a) => { activityByDate[a.activity_date] = a.active_calories; });
-      } catch (e) { /* activity is optional here */ }
-    }
-
-    async function loadDay() {
-      const date = document.getElementById('dayDate').value;
-      if (!date) return;
-      const res = await fetch(`/api/day-log?date=${encodeURIComponent(date)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        document.getElementById('dayError').innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
-        return;
-      }
-      renderDay(data);
-    }
-
-    function renderDay(day) {
-      const target = readTarget();
-      const total = day.total_calories;
-      let statusClass, statusText, statusLabel;
-      if (total < target.min) {
-        statusClass = 'status-under'; statusText = num(target.min - total); statusLabel = 'kcal below range';
-      } else if (total > target.max) {
-        statusClass = 'status-over'; statusText = num(total - target.max); statusLabel = 'kcal above range';
-      } else {
-        statusClass = 'status-in'; statusText = num(target.max - total); statusLabel = 'kcal left before max';
-      }
-      const burned = activityByDate[day.date];
-      document.getElementById('dayStats').innerHTML = `
-        <div class="stat-box"><div class="value">${num(total)}</div><div class="label">kcal eaten</div></div>
-        <div class="stat-box range-box"><div class="range-inputs"><input type="number" id="targetMin" value="${target.min}" onchange="saveTarget()" /> - <input type="number" id="targetMax" value="${target.max}" onchange="saveTarget()" /></div><div class="label">target range (kcal)</div></div>
-        <div class="stat-box"><div class="value ${statusClass}">${statusText}</div><div class="label">${statusLabel}</div></div>
-        ${burned != null ? `<div class="stat-box"><div class="value">${num(burned)}</div><div class="label">kcal burned (activity)</div></div>` : ''}
-      `;
-
-      const list = document.getElementById('dayEntries');
-      if (day.entries.length === 0) {
-        list.innerHTML = '<p style="color:#8A8578;font-size:13px;text-align:center;">Nothing added for this day yet.</p>';
-        return;
-      }
-      let html = '';
-      ['breakfast', 'lunch', 'dinner', 'snack', 'other'].forEach((meal) => {
-        const entries = day.entries.filter((e) => e.meal_type === meal);
-        if (entries.length === 0) return;
-        const mealTotal = entries.reduce((sum, e) => sum + e.calories, 0);
-        html += `<div class="entry-group-title"><span style="text-transform:capitalize;">${meal}</span> &middot; ${num(mealTotal)} kcal</div>`;
-        entries.forEach((e) => {
-          html += `
-            <div class="entry-row">
-              <div><span>${esc(e.name)}</span> ${e.quantity != null ? `<span class="entry-amount">${esc(amount(e.quantity, e.unit))}</span>` : ''}</div>
-              <div style="display:flex;align-items:center;gap:6px;">
-                <span class="entry-cal">${num(e.calories)} kcal</span>
-                <button class="remove-x" title="Remove" onclick="removeDayEntry(${e.id})">&times;</button>
-              </div>
-            </div>`;
-        });
-      });
-      html += `<div class="day-footer"><span>Total</span><span>${num(total)} kcal</span></div>`;
-      list.innerHTML = html;
-    }
-
-    async function addDayEntry() {
-      const errorBox = document.getElementById('dayError');
-      errorBox.innerHTML = '';
-      const date = document.getElementById('dayDate').value;
-      let payload;
-      if (dayMode === 'library') {
-        const foodId = document.getElementById('dayFood').value;
-        if (!foodId) {
-          errorBox.innerHTML = '<div class="error-box">Add foods on the My Foods page first, or enter one manually.</div>';
-          return;
-        }
-        payload = { date, meal_type: document.getElementById('dayMeal').value, food_id: foodId, quantity: document.getElementById('dayQty').value };
-      } else {
-        payload = {
-          date,
-          meal_type: document.getElementById('dayMealManual').value,
-          food_name: document.getElementById('dayManualName').value.trim(),
-          calories: document.getElementById('dayManualCal').value,
-          quantity: document.getElementById('dayManualQty').value,
-          unit: document.getElementById('dayManualUnit').value.trim(),
-        };
-        if (!payload.food_name || payload.calories === '') {
-          errorBox.innerHTML = '<div class="error-box">Enter a food name and its calories.</div>';
-          return;
-        }
-      }
-      const res = await fetch('/api/day-log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
-        return;
-      }
-      if (dayMode === 'manual') {
-        ['dayManualName', 'dayManualCal', 'dayManualQty', 'dayManualUnit'].forEach((id) => { document.getElementById(id).value = ''; });
-      }
-      loadDay();
-    }
-
-    async function removeDayEntry(id) {
-      await fetch(`/api/day-log/${id}`, { method: 'DELETE' });
-      loadDay();
-    }
-
-    async function initDayTotal() {
-      document.getElementById('dayDate').value = isoDate(new Date());
-      await Promise.all([loadFoodsForEditing(), loadActivity()]);
-      fillDayFoodSelect();
-      loadDay();
-    }
-
     loadWeightBanner();
     loadExistingPlan();
-    initDayTotal();
   </script>
 </body>
 </html>

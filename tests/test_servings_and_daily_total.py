@@ -219,3 +219,32 @@ def test_cannot_log_someone_elses_food(user):
     other = app_module.app.test_client()
     other.post("/signup", data={"email": "other@example.com", "password": PASSWORD})
     assert other.post("/api/day-log", json={"date": "2026-09-25", "food_id": food["id"]}).status_code == 404
+
+
+# ---------- meal history page ----------
+
+def test_meal_history_page_loads(user):
+    response = user.get("/history")
+    assert response.status_code == 200
+    assert b"Daily calorie total" in response.data and b"Past days" in response.data
+
+
+def test_meal_plan_page_no_longer_has_the_daily_total(user):
+    assert b"Daily calorie total" not in user.get("/").data
+
+
+def test_past_days_list_newest_first_with_totals(user):
+    user.post("/api/day-log", json={"date": "2026-09-23", "food_name": "Oats", "calories": 400})
+    user.post("/api/day-log", json={"date": "2026-09-25", "food_name": "Egg", "calories": 75})
+    user.post("/api/day-log", json={"date": "2026-09-25", "food_name": "Apple", "calories": 50})
+    assert user.get("/api/day-log/days").get_json() == [
+        {"date": "2026-09-25", "total_calories": 125, "items": 2},
+        {"date": "2026-09-23", "total_calories": 400, "items": 1},
+    ]
+
+
+def test_past_days_are_private(user):
+    user.post("/api/day-log", json={"date": "2026-09-25", "food_name": "Egg", "calories": 75})
+    other = app_module.app.test_client()
+    other.post("/signup", data={"email": "other@example.com", "password": PASSWORD})
+    assert other.get("/api/day-log/days").get_json() == []
