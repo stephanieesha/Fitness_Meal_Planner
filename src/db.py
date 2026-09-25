@@ -101,6 +101,19 @@ CREATE TABLE IF NOT EXISTS weight_log (
     UNIQUE(user_id, logged_date)
 );
 
+CREATE TABLE IF NOT EXISTS day_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    log_date TEXT NOT NULL,
+    meal_type TEXT NOT NULL DEFAULT 'other',
+    food_id INTEGER REFERENCES foods(id) ON DELETE SET NULL,
+    food_name TEXT NOT NULL,
+    quantity REAL,
+    unit TEXT,
+    calories REAL NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS usage_counters (
     day TEXT NOT NULL,
     kind TEXT NOT NULL,
@@ -188,6 +201,19 @@ CREATE TABLE IF NOT EXISTS weight_log (
     UNIQUE(user_id, logged_date)
 );
 
+CREATE TABLE IF NOT EXISTS day_log (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id),
+    log_date TEXT NOT NULL,
+    meal_type TEXT NOT NULL DEFAULT 'other',
+    food_id INTEGER REFERENCES foods(id) ON DELETE SET NULL,
+    food_name TEXT NOT NULL,
+    quantity DOUBLE PRECISION,
+    unit TEXT,
+    calories DOUBLE PRECISION NOT NULL,
+    created_at TEXT NOT NULL DEFAULT to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI:SS')
+);
+
 CREATE TABLE IF NOT EXISTS usage_counters (
     day TEXT NOT NULL,
     kind TEXT NOT NULL,
@@ -207,10 +233,21 @@ MIGRATIONS = [
     ("foods", "omega3_g_per_100g", "REAL NOT NULL DEFAULT 0"),
     ("foods", "meal_category", "TEXT NOT NULL DEFAULT 'other'"),
     ("plan_meals", "grams", "REAL"),
+    # Your own serving size instead of a fixed 100g: e.g. 10 g of cashews,
+    # 1 slice of bread, 1 egg. The *_per_100g columns keep meaning
+    # "per 100 of serving_unit", so all the existing scaling math still works.
+    ("foods", "serving_size", "REAL NOT NULL DEFAULT 100"),
+    ("foods", "serving_unit", "TEXT NOT NULL DEFAULT 'g'"),
+    # Optional whole item a serving is cut from, e.g. a loaf of 3000 kcal in 20 slices.
+    ("foods", "whole_label", "TEXT"),
+    ("foods", "whole_calories", "REAL"),
+    ("foods", "servings_per_whole", "REAL"),
+    ("foods", "notes", "TEXT"),
+    ("plan_meals", "unit", "TEXT"),
 ]
 
 # Tables whose primary key column is called id, so INSERTs can return the new id on PostgreSQL.
-_TABLES_WITH_ID = {"users", "target_history", "foods", "plan_meals", "activity_log"}
+_TABLES_WITH_ID = {"users", "target_history", "foods", "plan_meals", "activity_log", "day_log"}
 _INSERT_RE = re.compile(r"^\s*INSERT\s+INTO\s+(\w+)", re.IGNORECASE)
 
 
@@ -288,6 +325,8 @@ def _existing_columns(conn, table: str, is_postgres: bool) -> set:
 def _run_migrations(conn) -> None:
     is_postgres = isinstance(conn, PgConnection)
     for table, column, coltype in MIGRATIONS:
+        if is_postgres:
+            coltype = coltype.replace("REAL", "DOUBLE PRECISION")  # PostgreSQL's REAL is single precision
         if column not in _existing_columns(conn, table, is_postgres):
             conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {coltype}")
     conn.commit()

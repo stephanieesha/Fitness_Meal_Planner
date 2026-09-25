@@ -23,13 +23,30 @@
     .category-group { margin-bottom: 20px; }
     .category-title { font-size: 13px; font-weight: 600; color: #5B7C99; text-transform: capitalize; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #E4E0D3; }
     .food-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #E4E0D3; font-size: 13px; gap: 10px; flex-wrap: wrap; }
-    .food-name { font-weight: 500; cursor: help; border-bottom: 1px dotted #8A8578; }
+    .food-name { font-weight: 600; }
     .food-macros { color: #4A453C; }
     .food-micros { color: #8A8578; font-size: 12px; }
     .food-actions { display: flex; align-items: center; gap: 8px; }
     .category-select { font-size: 12px; padding: 4px 6px; min-width: auto; border-radius: 6px; }
     .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
     .optional-note { font-size: 11px; color: #8A8578; margin: -4px 0 8px; }
+    textarea { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; width: 100%; min-height: 54px; font-family: inherit; background: #fff; color: #161A1F; resize: vertical; }
+    button.secondary { background: #6B7A87; }
+    button.small { padding: 5px 10px; font-size: 12px; }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .food-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #E4E0D3; }
+    .food-form label.field { display: block; font-size: 12px; color: #4A453C; margin-bottom: 4px; font-weight: 500; }
+    .field-group { margin-bottom: 12px; }
+    .whole-box { background: #fff; border: 1px solid #E4E0D3; border-radius: 8px; padding: 10px; margin-top: 8px; }
+    .computed { font-size: 12px; color: #5B7C99; font-weight: 600; margin-top: 2px; }
+    .check-row { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+    .check-row input { flex: none; min-width: 0; }
+    .food-main { flex: 1 1 260px; min-width: 0; }
+    .food-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+    .food-cal { font-weight: 600; color: #5B7C99; }
+    .food-whole { font-size: 12px; color: #4A453C; margin-top: 2px; }
+    .food-notes { font-size: 12px; color: #6B6457; font-style: italic; margin-top: 3px; white-space: pre-wrap; }
+    .edit-panel { flex-basis: 100%; }
   </style>
 </head>
 <body>
@@ -43,7 +60,7 @@
       <h2>Add a food</h2>
       <div id="formError"></div>
       <div class="form-row">
-        <input type="text" id="name" placeholder="Food name (e.g. banana, chicken breast)" onkeydown="if(event.key === 'Enter') addFood()" />
+        <input type="text" id="name" placeholder="Food name (e.g. banana bread, cashews)" onkeydown="if(event.key === 'Enter') addFood()" />
         <select id="category">
           <option value="breakfast">Breakfast</option>
           <option value="lunch">Lunch</option>
@@ -51,28 +68,13 @@
           <option value="snack">Snack</option>
           <option value="other" selected>Other</option>
         </select>
-        <button onclick="addFood()">Add</button>
       </div>
-      <p style="font-size:12px;color:#999;">Nutrition data (including calcium, vitamin C, and omega-3) is looked up automatically from USDA's food database.</p>
-
-      <div id="manualEntry" style="display:none; margin-top:16px; padding-top:16px; border-top:1px solid #eee;">
-        <p style="font-size:13px; margin-bottom:8px;">Couldn't find that automatically - enter values manually:</p>
-        <div class="form-row">
-          <input type="number" id="manualCalories" placeholder="Calories/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-          <input type="number" id="manualProtein" placeholder="Protein g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-        </div>
-        <div class="form-row">
-          <input type="number" id="manualCarbs" placeholder="Carbs g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-          <input type="number" id="manualFat" placeholder="Fat g/100g" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-        </div>
-        <p class="optional-note">The three below are optional - leave blank if you don't know them, they'll default to 0.</p>
-        <div class="form-row">
-          <input type="number" id="manualCalcium" placeholder="Calcium mg/100g (optional)" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-          <input type="number" id="manualVitaminC" placeholder="Vitamin C mg/100g (optional)" step="0.1" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-          <input type="number" id="manualOmega3" placeholder="Omega-3 g/100g (optional)" step="0.01" onkeydown="if(event.key === 'Enter') addFoodManually()" />
-        </div>
-        <button onclick="addFoodManually()">Save with these values</button>
+      <div class="button-row">
+        <button onclick="openManualForm()">Enter my own values</button>
+        <button class="secondary" onclick="addFood()">Look up nutrition</button>
       </div>
+      <p style="font-size:12px;color:#8A8578;">Enter your own serving size and calories, or let the app look up average values per 100g from USDA's food database.</p>
+      <div id="manualEntry" style="display:none;"></div>
     </div>
 
     <div class="card">
@@ -80,11 +82,17 @@
       <div class="search-row">
         <input type="text" id="searchBox" placeholder="Search your foods..." oninput="renderFoods()" />
       </div>
-      <p style="font-size:12px;color:#999;">Hover a food name to see calories per 100g. Change the dropdown next to a food to re-categorize it.</p>
       <div id="foodList"></div>
     </div>
 
   </div>
+
+  <datalist id="unitOptions">
+    <option value="g"></option><option value="ml"></option><option value="slice"></option>
+    <option value="piece"></option><option value="egg"></option><option value="tbsp"></option>
+    <option value="tsp"></option><option value="cup"></option><option value="bowl"></option>
+    <option value="wrap"></option><option value="serving"></option>
+  </datalist>
 
   <script>
     function esc(value) {
@@ -92,7 +100,121 @@
     }
 
     const CATEGORY_ORDER = ['breakfast', 'lunch', 'dinner', 'snack', 'other'];
+    const MEASURE_UNITS = ['g', 'kg', 'ml', 'l', 'oz', 'tbsp', 'tsp'];
     let allFoods = [];
+    let editingId = null;
+
+    function num(value) {
+      return Math.round(Number(value) * 10) / 10;
+    }
+
+    // "10 g", "1 slice", "20 slices"
+    function amount(n, unit) {
+      n = num(n);
+      unit = unit || 'g';
+      if (MEASURE_UNITS.includes(unit.toLowerCase()) || n === 1 || /s$/.test(unit)) return `${n} ${unit}`;
+      return `${n} ${unit}s`;
+    }
+
+    // One form, used both for adding a food and for editing one (prefix keeps their ids apart).
+    function foodFormHtml(prefix, f) {
+      f = f || {};
+      const hasWhole = f.whole_calories != null;
+      const val = (v) => (v == null ? '' : esc(v));
+      return `
+        <div class="food-form">
+          ${prefix === 'edit' ? `
+            <div class="form-row">
+              <input type="text" id="edit-name" value="${val(f.name)}" placeholder="Food name" />
+              <select id="edit-category">${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}</select>
+            </div>` : ''}
+          <div class="field-group">
+            <label class="field">Serving (how you measure it)</label>
+            <div class="form-row">
+              <input type="number" id="${prefix}-size" value="${val(f.serving_size ?? 100)}" step="any" min="0" placeholder="Amount" oninput="updateComputed('${prefix}')" />
+              <input type="text" id="${prefix}-unit" value="${val(f.serving_unit ?? 'g')}" list="unitOptions" placeholder="Unit (g, slice, egg...)" oninput="updateComputed('${prefix}')" />
+              <input type="number" id="${prefix}-cal" value="${hasWhole ? '' : val(f.serving_calories)}" step="any" min="0" placeholder="Calories in this serving" ${hasWhole ? 'disabled' : ''} />
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="check-row"><input type="checkbox" id="${prefix}-hasWhole" ${hasWhole ? 'checked' : ''} onchange="toggleWhole('${prefix}')" /> Cut from a whole item (e.g. a loaf, a litre tub)</label>
+            <div class="whole-box" id="${prefix}-wholeBox" style="display:${hasWhole ? 'block' : 'none'};">
+              <div class="form-row">
+                <input type="text" id="${prefix}-wholeLabel" value="${val(f.whole_label)}" placeholder="Whole item (e.g. loaf)" oninput="updateComputed('${prefix}')" />
+                <input type="number" id="${prefix}-wholeCal" value="${val(f.whole_calories)}" step="any" min="0" placeholder="Calories in the whole item" oninput="updateComputed('${prefix}')" />
+                <input type="number" id="${prefix}-wholeCount" value="${val(f.servings_per_whole)}" step="any" min="0" placeholder="Servings it makes" oninput="updateComputed('${prefix}')" />
+              </div>
+              <div class="computed" id="${prefix}-computed"></div>
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field">Macros per serving (optional)</label>
+            <div class="form-row">
+              <input type="number" id="${prefix}-protein" value="${val(f.protein_per_serving || '')}" step="any" min="0" placeholder="Protein g" />
+              <input type="number" id="${prefix}-carbs" value="${val(f.carbs_per_serving || '')}" step="any" min="0" placeholder="Carbs g" />
+              <input type="number" id="${prefix}-fat" value="${val(f.fat_per_serving || '')}" step="any" min="0" placeholder="Fat g" />
+            </div>
+          </div>
+          <div class="field-group">
+            <label class="field">Notes (optional)</label>
+            <textarea id="${prefix}-notes" placeholder="e.g. Homemade, 20 slices per loaf">${val(f.notes)}</textarea>
+          </div>
+          <div id="${prefix}-error"></div>
+          <div class="button-row">
+            ${prefix === 'edit'
+              ? `<button onclick="saveEdit(${f.id})">Save changes</button><button class="secondary" onclick="closeEdit()">Cancel</button>`
+              : `<button onclick="addFoodManually()">Save food</button><button class="secondary" onclick="closeManualForm()">Cancel</button>`}
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleWhole(prefix) {
+      const on = document.getElementById(`${prefix}-hasWhole`).checked;
+      document.getElementById(`${prefix}-wholeBox`).style.display = on ? 'block' : 'none';
+      document.getElementById(`${prefix}-cal`).disabled = on;
+      updateComputed(prefix);
+    }
+
+    // Live "= 150 kcal per slice" while typing the whole item's numbers.
+    function updateComputed(prefix) {
+      const out = document.getElementById(`${prefix}-computed`);
+      if (!out) return;
+      const whole = parseFloat(document.getElementById(`${prefix}-wholeCal`).value);
+      const count = parseFloat(document.getElementById(`${prefix}-wholeCount`).value);
+      const size = parseFloat(document.getElementById(`${prefix}-size`).value) || 1;
+      const unit = document.getElementById(`${prefix}-unit`).value.trim() || 'g';
+      const calInput = document.getElementById(`${prefix}-cal`);
+      if (whole >= 0 && count > 0) {
+        const per = whole / count;
+        out.textContent = `= ${num(per)} kcal per ${amount(size, unit)}`;
+        if (calInput.disabled) calInput.value = num(per);
+      } else {
+        out.textContent = '';
+      }
+    }
+
+    function readFoodForm(prefix) {
+      const v = (id) => document.getElementById(`${prefix}-${id}`).value.trim();
+      const payload = {
+        serving_size: v('size'),
+        serving_unit: v('unit'),
+        protein_per_serving: v('protein'),
+        carbs_per_serving: v('carbs'),
+        fat_per_serving: v('fat'),
+        notes: document.getElementById(`${prefix}-notes`).value,
+      };
+      if (document.getElementById(`${prefix}-hasWhole`).checked) {
+        payload.whole_label = v('wholeLabel');
+        payload.whole_calories = v('wholeCal');
+        payload.servings_per_whole = v('wholeCount');
+        if (!payload.whole_calories || !payload.servings_per_whole) return { error: "Enter the whole item's calories and how many servings it makes." };
+      } else {
+        payload.serving_calories = v('cal');
+        if (payload.serving_calories === '') return { error: 'Enter the calories in this serving.' };
+      }
+      return { payload };
+    }
 
     async function loadFoods() {
       const res = await fetch('/api/foods');
@@ -100,12 +222,41 @@
       renderFoods();
     }
 
+    function foodRowHtml(f) {
+      const macros = [f.protein_per_serving, f.carbs_per_serving, f.fat_per_serving].some((x) => x > 0)
+        ? `<span class="food-macros">Protein ${f.protein_per_serving}g &middot; Carbs ${f.carbs_per_serving}g &middot; Fat ${f.fat_per_serving}g per serving</span>` : '';
+      const micros = (f.calcium_mg_per_100g || f.vitamin_c_mg_per_100g || f.omega3_g_per_100g)
+        ? `<div class="food-micros">Per 100${esc(f.serving_unit)}: Calcium ${f.calcium_mg_per_100g}mg &middot; Vitamin C ${f.vitamin_c_mg_per_100g}mg &middot; Omega-3 ${f.omega3_g_per_100g}g</div>` : '';
+      const whole = f.whole_calories != null
+        ? `<div class="food-whole">Whole ${esc(f.whole_label || 'item')}: ${num(f.whole_calories)} kcal &middot; ${esc(amount(f.servings_per_whole, f.serving_unit))}</div>` : '';
+      const notes = f.notes ? `<div class="food-notes">${esc(f.notes)}</div>` : '';
+      return `
+        <div class="food-row">
+          <div class="food-main">
+            <div class="food-title">
+              <span class="food-name">${esc(f.name)}</span>
+              <span class="food-cal">${num(f.serving_calories)} kcal per ${esc(amount(f.serving_size, f.serving_unit))}</span>
+            </div>
+            ${whole}${macros}${micros}${notes}
+          </div>
+          <div class="food-actions">
+            <select class="category-select" onchange="updateCategory(${f.id}, this.value)">
+              ${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}
+            </select>
+            <button class="small" onclick="openEdit(${f.id})">Edit</button>
+            <button class="danger" onclick="removeFood(${f.id})">Remove</button>
+          </div>
+          ${editingId === f.id ? `<div class="edit-panel">${foodFormHtml('edit', f)}</div>` : ''}
+        </div>
+      `;
+    }
+
     function renderFoods() {
       const list = document.getElementById('foodList');
       const query = document.getElementById('searchBox').value.trim().toLowerCase();
 
       const filtered = query
-        ? allFoods.filter((f) => f.name.toLowerCase().includes(query))
+        ? allFoods.filter((f) => f.name.toLowerCase().includes(query) || (f.notes || '').toLowerCase().includes(query))
         : allFoods;
 
       if (filtered.length === 0) {
@@ -117,34 +268,31 @@
       CATEGORY_ORDER.forEach((category) => {
         const inCategory = filtered.filter((f) => f.meal_category === category);
         if (inCategory.length === 0) return;
-
         html += `<div class="category-group"><div class="category-title">${esc(category)}</div>`;
-        inCategory.forEach((f) => {
-          html += `
-            <div class="food-row">
-              <span class="food-name" title="${f.calories_per_100g} kcal per 100g">${esc(f.name)}</span>
-              <span class="food-macros">Protein: ${f.protein_per_100g}g &middot; Carbs: ${f.carbs_per_100g}g &middot; Fat: ${f.fat_per_100g}g</span>
-              <span class="food-micros">Calcium: ${f.calcium_mg_per_100g}mg &middot; Vitamin C: ${f.vitamin_c_mg_per_100g}mg &middot; Omega-3: ${f.omega3_g_per_100g}g</span>
-              <div class="food-actions">
-                <select class="category-select" onchange="updateCategory(${f.id}, this.value)">
-                  ${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}
-                </select>
-                <button class="danger" onclick="removeFood(${f.id})">Remove</button>
-              </div>
-            </div>
-          `;
-        });
+        inCategory.forEach((f) => { html += foodRowHtml(f); });
         html += '</div>';
       });
 
       list.innerHTML = html;
+      if (editingId !== null) updateComputed('edit');
+    }
+
+    function openManualForm() {
+      const section = document.getElementById('manualEntry');
+      section.innerHTML = foodFormHtml('add');
+      section.style.display = 'block';
+    }
+
+    function closeManualForm() {
+      const section = document.getElementById('manualEntry');
+      section.style.display = 'none';
+      section.innerHTML = '';
     }
 
     async function addFood() {
       const errorBox = document.getElementById('formError');
-      const manualSection = document.getElementById('manualEntry');
       errorBox.innerHTML = '';
-      manualSection.style.display = 'none';
+      closeManualForm();
 
       const name = document.getElementById('name').value.trim();
       const meal_category = document.getElementById('category').value;
@@ -162,9 +310,7 @@
 
       if (!res.ok) {
         errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
-        if (data.manual_entry_required) {
-          manualSection.style.display = 'block';
-        }
+        if (data.manual_entry_required) openManualForm();
         return;
       }
 
@@ -173,43 +319,68 @@
     }
 
     async function addFoodManually() {
-      const errorBox = document.getElementById('formError');
+      const errorBox = document.getElementById('add-error');
       errorBox.innerHTML = '';
-
-      const payload = {
-        name: document.getElementById('name').value.trim(),
-        meal_category: document.getElementById('category').value,
-        calories_per_100g: document.getElementById('manualCalories').value,
-        protein_per_100g: document.getElementById('manualProtein').value,
-        carbs_per_100g: document.getElementById('manualCarbs').value,
-        fat_per_100g: document.getElementById('manualFat').value,
-        calcium_mg_per_100g: document.getElementById('manualCalcium').value || 0,
-        vitamin_c_mg_per_100g: document.getElementById('manualVitaminC').value || 0,
-        omega3_g_per_100g: document.getElementById('manualOmega3').value || 0,
-      };
+      const name = document.getElementById('name').value.trim();
+      if (!name) {
+        errorBox.innerHTML = '<div class="error-box">Enter a food name at the top first.</div>';
+        return;
+      }
+      const { payload, error } = readFoodForm('add');
+      if (error) {
+        errorBox.innerHTML = `<div class="error-box">${esc(error)}</div>`;
+        return;
+      }
 
       const res = await fetch('/api/foods', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, name, meal_category: document.getElementById('category').value }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
         return;
       }
 
       document.getElementById('name').value = '';
-      document.getElementById('manualCalories').value = '';
-      document.getElementById('manualProtein').value = '';
-      document.getElementById('manualCarbs').value = '';
-      document.getElementById('manualFat').value = '';
-      document.getElementById('manualCalcium').value = '';
-      document.getElementById('manualVitaminC').value = '';
-      document.getElementById('manualOmega3').value = '';
-      document.getElementById('manualEntry').style.display = 'none';
+      document.getElementById('formError').innerHTML = '';
+      closeManualForm();
+      loadFoods();
+    }
 
+    function openEdit(id) {
+      editingId = id;
+      renderFoods();
+    }
+
+    function closeEdit() {
+      editingId = null;
+      renderFoods();
+    }
+
+    async function saveEdit(id) {
+      const errorBox = document.getElementById('edit-error');
+      errorBox.innerHTML = '';
+      const { payload, error } = readFoodForm('edit');
+      if (error) {
+        errorBox.innerHTML = `<div class="error-box">${esc(error)}</div>`;
+        return;
+      }
+      payload.name = document.getElementById('edit-name').value.trim();
+      payload.meal_category = document.getElementById('edit-category').value;
+
+      const res = await fetch(`/api/foods/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        errorBox.innerHTML = `<div class="error-box">${esc(data.error)}</div>`;
+        return;
+      }
+      editingId = null;
       loadFoods();
     }
 
@@ -223,6 +394,7 @@
     }
 
     async function removeFood(id) {
+      if (!confirm('Remove this food from your list?')) return;
       await fetch(`/api/foods/${id}`, { method: 'DELETE' });
       loadFoods();
     }

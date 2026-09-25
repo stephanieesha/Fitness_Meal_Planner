@@ -37,9 +37,10 @@ from nutrition import build_profile_targets
 from meal_selector import build_week_plan
 from ai_enrichment import generate_plan_summary, _default_summary
 from food_library import (
-    add_food, get_foods, get_food, delete_food, update_food_category,
-    FoodNotFound, InvalidCategory, MEAL_CATEGORIES,
+    add_food, get_foods, get_food, delete_food, update_food_category, update_food, nutrition_for,
+    FoodNotFound, InvalidCategory, InvalidFoodData, MEAL_CATEGORIES,
 )
+from day_log import add_day_entry, get_day, delete_day_entry, DayEntryNotFound, InvalidDayEntry
 from nutrition_lookup import search_food_nutrition, FoodLookupError
 from plan_storage import save_plan, get_latest_plan, update_plan_meal, PlanMealNotFound
 from apple_health_parser import parse_upload
@@ -280,11 +281,6 @@ def edit_plan_meal(meal_id):
             # so the calories genuinely reflect what was actually chosen,
             # not left stale from whatever meal this is replacing.
             try:
-                grams = float(data.get("grams", 100))
-            except (ValueError, TypeError):
-                return jsonify({"error": "grams must be a number"}), 400
-
-            try:
                 food_id = int(data["food_id"])
             except (ValueError, TypeError):
                 return jsonify({"error": "food_id must be a number"}), 400
@@ -294,15 +290,26 @@ def edit_plan_meal(meal_id):
             except FoodNotFound:
                 return jsonify({"error": "Food not found in your library"}), 404
 
-            multiplier = grams / 100
+            # The amount is in the food's own unit (grams, slices, eggs...),
+            # defaulting to one of its servings. "grams" is still accepted
+            # from older pages.
+            raw_quantity = data.get("quantity", data.get("grams"))
+            if raw_quantity in (None, ""):
+                quantity = food["serving_size"]
+            else:
+                try:
+                    quantity = float(raw_quantity)
+                except (ValueError, TypeError):
+                    return jsonify({"error": "quantity must be a number"}), 400
+                if quantity < 0:
+                    return jsonify({"error": "quantity must be at least 0"}), 400
+
             updated_values = {
                 "food_name": food["name"],
-                "calories": round(food["calories_per_100g"] * multiplier, 1),
-                "protein_g": round(food["protein_per_100g"] * multiplier, 1),
-                "carbs_g": round(food["carbs_per_100g"] * multiplier, 1),
-                "fat_g": round(food["fat_per_100g"] * multiplier, 1),
+                **nutrition_for(food, quantity),
                 "food_id": food["id"],
-                "grams": grams,
+                "grams": quantity,
+                "unit": food["serving_unit"],
             }
         else:
             # Manual entry: just a name and a calorie count - macros
@@ -333,6 +340,7 @@ def edit_plan_meal(meal_id):
                 "fat_g": 0,
                 "food_id": None,
                 "grams": manual_grams,
+                "unit": ((data.get("unit") or "").strip()[:20] or "g") if manual_grams is not None else None,
             }
 
         result = update_plan_meal(conn, int(current_user.id), meal_id, updated_values)
@@ -385,18 +393,22 @@ def create_food():
         finally:
             cap_conn.close()
 
+    # Your own values: calories for a serving you choose (10 g, 1 slice,
+    # 1 egg...) or a whole item split into servings, or the older
+    # per-100g fields. Anything given here skips the automatic lookup.
     manual_fields = ["calories_per_100g", "protein_per_100g", "carbs_per_100g", "fat_per_100g"]
-    if all(data.get(f) not in (None, "") for f in manual_fields):
-        try:
-            for field in manual_fields:
-                float(data[field])
-        except (ValueError, TypeError):
-            return jsonify({"error": "calories/protein/carbs/fat must be numbers"}), 400
-
+    is_manual = (
+        data.get("serving_calories") not in (None, "")
+        or data.get("whole_calories") not in (None, "")
+        or all(data.get(f) not in (None, "") for f in manual_fields)
+    )
+    if is_manual:
         conn = get_connection()
         try:
             food = add_food(conn, int(current_user.id), {**data, "name": name, "meal_category": meal_category})
             return jsonify(food), 201
+        except InvalidFoodData as e:
+            return jsonify({"error": str(e)}), 400
         finally:
             conn.close()
 
@@ -427,6 +439,63 @@ def create_food():
         food = add_food(conn, int(current_user.id), {**looked_up, "meal_category": meal_category})
         food["matched_description"] = looked_up["matched_description"]
         return jsonify(food), 201
+    finally:
+        conn.close()
+
+
+@app.route("/api/foods/<int:food_id>", methods=["PUT"])
+@login_required
+def edit_food(food_id):
+    data = request.get_json() or {}
+    conn = get_connection()
+    try:
+        return jsonify(update_food(conn, int(current_user.id), food_id, data))
+    except (InvalidFoodData, InvalidCategory) as e:
+        return jsonify({"error": str(e)}), 400
+    except FoodNotFound:
+        return jsonify({"error": "Food not found"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/api/day-log", methods=["GET"])
+@login_required
+def day_log_for_date():
+    conn = get_connection()
+    try:
+        return jsonify(get_day(conn, int(current_user.id), request.args.get("date", "")))
+    except InvalidDayEntry as e:
+        return jsonify({"error": str(e)}), 400
+    finally:
+        conn.close()
+
+
+@app.route("/api/day-log", methods=["POST"])
+@login_required
+def add_to_day_log():
+    data = request.get_json() or {}
+    conn = get_connection()
+    try:
+        entry = add_day_entry(conn, int(current_user.id), data)
+        day = get_day(conn, int(current_user.id), entry["date"])
+        return jsonify({"entry": entry, "total_calories": day["total_calories"]}), 201
+    except InvalidDayEntry as e:
+        return jsonify({"error": str(e)}), 400
+    except FoodNotFound:
+        return jsonify({"error": "Food not found in your library"}), 404
+    finally:
+        conn.close()
+
+
+@app.route("/api/day-log/<int:entry_id>", methods=["DELETE"])
+@login_required
+def remove_from_day_log(entry_id):
+    conn = get_connection()
+    try:
+        delete_day_entry(conn, int(current_user.id), entry_id)
+        return jsonify({"deleted": entry_id})
+    except DayEntryNotFound:
+        return jsonify({"error": "Entry not found"}), 404
     finally:
         conn.close()
 

@@ -92,6 +92,8 @@ def get_latest_plan(conn, user_id: int) -> list:
             "carbs_g": row["carbs_g"],
             "fat_g": row["fat_g"],
             "grams": row["grams"],
+            "unit": row["unit"],
+            "food_id": row["food_id"],
         })
 
     plan = list(days.values())
@@ -115,13 +117,13 @@ def update_plan_meal(conn, user_id: int, meal_id: int, updated_values: dict) -> 
     conn.execute(
         """
         UPDATE plan_meals
-        SET food_name = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, food_id = ?, grams = ?
+        SET food_name = ?, calories = ?, protein_g = ?, carbs_g = ?, fat_g = ?, food_id = ?, grams = ?, unit = ?
         WHERE id = ? AND user_id = ?
         """,
         (
             updated_values["food_name"], updated_values["calories"],
             updated_values.get("protein_g", 0), updated_values.get("carbs_g", 0), updated_values.get("fat_g", 0),
-            updated_values.get("food_id"), updated_values.get("grams"),
+            updated_values.get("food_id"), updated_values.get("grams"), updated_values.get("unit"),
             meal_id, user_id,
         ),
     )
@@ -151,6 +153,8 @@ def update_plan_meal(conn, user_id: int, meal_id: int, updated_values: dict) -> 
             "carbs_g": updated_row["carbs_g"],
             "fat_g": updated_row["fat_g"],
             "grams": updated_row["grams"],
+            "unit": updated_row["unit"],
+            "food_id": updated_row["food_id"],
         },
         "day_totals": day_totals,
     }

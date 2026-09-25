@@ -21,14 +21,26 @@ you generate is saved to your own history.
   data is looked up automatically from USDA FoodData Central when you
   add a food by name, with a manual-entry fallback if a food can't be
   matched. Calories-per-100g shows as a hover tooltip.
+- **Your own servings, whole items, and notes.** Foods are no longer
+  fixed at 100g: each has a serving you choose (10 g of cashews, 1 slice,
+  1 egg, 1000 ml of yoghurt) and the calories in it. A serving can be cut
+  from a whole item: enter the loaf's calories and how many slices it
+  makes, and the per-slice calories are worked out (and recalculated if
+  you later change either number). Every food can carry notes and be
+  edited in place. Existing foods carry over as "per 100 g".
+- **Daily calorie total.** On the meal plan page, add what you actually
+  ate on a date (from your foods, in their own units, or typed in by
+  hand) and see the day's total by meal, against an adjustable target
+  range (default 1200-1500 kcal), alongside calories burned if activity
+  was logged for that day.
 - **Phase 3 (not built yet):** Dashboard with weight trend chart and
   target history view, reading from the data Phase 1 already saves.
 - **Phase 4 (partial): Table-view plan with inline editing.** Generated
   plans now persist (previously they existed only in the response of one
   request) and display as a table - days as rows, meal types as columns
   - matching a real "food timetable" format. Click "Edit" on any cell to
-  replace that meal either by picking from your food library (portion in
-  grams, calories/macros scaled accordingly) or typing a food name and
+  replace that meal either by picking from your food library (amount in
+  the food's own unit, calories/macros scaled accordingly) or typing a food name and
   calorie count directly. Either way, the day's total recalculates to
   reflect the actual edit, not the original generated value. Verified:
   editing one meal correctly changes only that day's total, and the
