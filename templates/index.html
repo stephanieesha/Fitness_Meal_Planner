@@ -31,9 +31,16 @@
     .day-total-cell-clean { font-weight: 600; text-align: right; }
     .summary-text { font-size: 14px; color: #4A453C; margin-bottom: 16px; font-style: italic; }
 
-    table.plan-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    table.plan-table th { text-align: left; padding: 8px 10px; background: #E4E0D3; border-bottom: 2px solid #D8D4C8; text-transform: capitalize; color: #161A1F; }
-    table.plan-table td { padding: 8px 10px; border-bottom: 1px solid #E4E0D3; vertical-align: top; }
+    table.plan-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; color: #161A1F; }
+    table.plan-table th { text-align: left; padding: 10px 12px; font-size: 13px; font-weight: 500; color: #6B7A87; background: #F3F1EA; border-bottom: 1px solid #D8D4C8; }
+    table.plan-table td { padding: 12px; border-bottom: 1px solid #E4E0D3; vertical-align: top; }
+    table.plan-table tr:hover td { background: #FAF9F5; }
+    table.plan-table th:first-child, table.plan-table td:first-child { width: 64px; }
+    table.plan-table th:last-child, table.plan-table td:last-child { width: 150px; }
+    .plan-name { min-height: 2.8em; line-height: 1.4; font-weight: 500; }
+    .plan-kcal { color: #6B7A87; font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; }
+    .plan-total-kcal { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+    .plan-macros { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 12px; margin-top: 4px; font-size: 12px; color: #6B7A87; font-variant-numeric: tabular-nums; }
     .day-label { font-weight: 600; white-space: nowrap; }
     .day-total-cell { font-size: 11px; color: #6B7A87; }
     .cell-meal-name { font-weight: 500; }
@@ -255,7 +262,7 @@
           const meal = findMeal(day, mt);
           html += `<td>${meal ? renderCell(meal, 'plan') : '<span style="color:#ccc;">-</span>'}</td>`;
         });
-        html += `<td class="day-total-cell">${day.totals.calories} kcal<br>P:${day.totals.protein_g}g C:${day.totals.carbs_g}g F:${day.totals.fat_g}g</td>`;
+        html += `<td><div class="plan-total-kcal">${day.totals.calories} kcal</div><div class="plan-macros"><span>P ${day.totals.protein_g}g</span><span>C ${day.totals.carbs_g}g</span><span>F ${day.totals.fat_g}g</span></div></td>`;
         html += '</tr>';
       });
 
@@ -304,10 +311,12 @@
     }
 
     function renderCell(meal, ctx) {
+      const nameClass = ctx === 'plan' ? 'cell-meal-name plan-name' : 'cell-meal-name';
+      const calClass = ctx === 'plan' ? 'cell-meal-cal plan-kcal' : 'cell-meal-cal';
       return `
         <div id="${cellId(meal.id, ctx)}">
-          <div class="cell-meal-name">${esc(meal.name)}</div>
-          <div class="cell-meal-cal">${meal.calories} kcal${gramsLabel(meal)}</div>
+          <div class="${nameClass}">${esc(meal.name)}</div>
+          <div class="${calClass}">${meal.calories} kcal${gramsLabel(meal)}</div>
           <button class="edit-link no-print" onclick="showEditBox(${meal.id}, '${ctx}')">Edit</button>
         </div>
       `;

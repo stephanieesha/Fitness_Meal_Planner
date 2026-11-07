@@ -5,48 +5,54 @@
   <title>My Foods - Meal Planner</title>
   <style>
     * { box-sizing: border-box; }
-    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #7C93A6; color: #161A1F; }
-    header { padding: 20px 32px; background: #161A1F; color: #fff; display: flex; justify-content: space-between; align-items: center; }
-    header h1 { margin: 0; font-size: 20px; }
-    header nav a { color: #C9D4DE; text-decoration: none; font-size: 13px; margin-left: 16px; }
-    .container { max-width: 760px; margin: 24px auto; padding: 0 24px; }
-    .card { background: #F3F1EA; border-radius: 10px; padding: 22px; margin-bottom: 20px; }
-    .card h2 { margin-top: 0; font-size: 16px; color: #161A1F; }
+    body { font-family: -apple-system, system-ui, sans-serif; margin: 0; background: #FFFFFF; color: #3B3C45; }
+    header { padding: 20px 32px; background: #FFFFFF; color: #303AD7; border-bottom: 1px solid #F0F1F0; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { margin: 0; font-size: 24px; font-weight: 400; color: #303AD7; }
+    header nav a { color: #5A62E5; text-decoration: none; font-size: 13px; margin-left: 16px; }
+    .container { max-width: 1140px; margin: 24px auto; padding: 0 24px; }
+    .card { background: linear-gradient(160deg, #FFFFFF 0%, #E9EFFC 100%); border: 1px solid #DCE4F7; box-shadow: 0 1px 3px rgba(17, 17, 17, 0.06); border-radius: 10px; padding: 22px; margin-bottom: 20px; }
+    .card h2 { margin-top: 0; font-size: 20px; font-weight: 400; color: #303AD7; }
     .form-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
-    input, select { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; flex: 1; min-width: 100px; background: #fff; color: #161A1F; }
-    button { padding: 9px 16px; border: none; border-radius: 20px; background: #161A1F; color: #fff; font-size: 13px; cursor: pointer; font-weight: 500; }
-    button:hover { background: #333; }
-    button.danger { background: #8A5049; padding: 5px 10px; font-size: 12px; }
-    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
-    .search-row { margin-bottom: 16px; }
-    .search-row input { width: 100%; }
-    .category-group { margin-bottom: 20px; }
-    .category-title { font-size: 13px; font-weight: 600; color: #5B7C99; text-transform: capitalize; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #E4E0D3; }
-    .food-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #E4E0D3; font-size: 13px; gap: 10px; flex-wrap: wrap; }
-    .food-name { font-weight: 600; }
-    .food-macros { color: #4A453C; }
-    .food-micros { color: #8A8578; font-size: 12px; }
-    .food-actions { display: flex; align-items: center; gap: 8px; }
-    .category-select { font-size: 12px; padding: 4px 6px; min-width: auto; border-radius: 6px; }
-    .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
-    .optional-note { font-size: 11px; color: #8A8578; margin: -4px 0 8px; }
-    textarea { padding: 9px; border: 1px solid #D8D4C8; border-radius: 6px; font-size: 13px; width: 100%; min-height: 54px; font-family: inherit; background: #fff; color: #161A1F; resize: vertical; }
-    button.secondary { background: #6B7A87; }
+    input, select { padding: 9px; border: 1px solid #DCDDF5; border-radius: 6px; font-size: 13px; flex: 1; min-width: 100px; background: #FFFFFF; color: #3B3C45; }
+    input::placeholder { color: #7F84CA; }
+    textarea { padding: 9px; border: 1px solid #DCDDF5; border-radius: 6px; font-size: 13px; width: 100%; min-height: 54px; font-family: inherit; background: #FFFFFF; color: #3B3C45; resize: vertical; }
+    button { padding: 9px 16px; border: none; border-radius: 6px; background: #7076EA; color: #FFFFFF; font-size: 13px; cursor: pointer; font-weight: 500; }
+    button:hover { background: #5A62E5; }
+    button.secondary { background: #F2F1FB; color: #303AD7; }
+    button.danger { background: #C0392B; padding: 5px 10px; font-size: 12px; }
     button.small { padding: 5px 10px; font-size: 12px; }
     .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .food-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #E4E0D3; }
+    .error-box { background: #F4DEDC; border: 1px solid #DDB3AE; color: #7A2E24; padding: 10px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .search-row { margin-bottom: 16px; }
+    .search-row input { width: 100%; background: #F2F1FB; border: none; border-radius: 6px; padding: 12px 14px; font-size: 14px; }
+    .empty-state { color: #6D6C6D; font-size: 13px; text-align: center; padding: 20px 0; }
+    .food-form { margin-top: 14px; padding-top: 14px; border-top: 1px solid #F0F1F0; }
     .food-form label.field { display: block; font-size: 12px; color: #4A453C; margin-bottom: 4px; font-weight: 500; }
     .field-group { margin-bottom: 12px; }
-    .whole-box { background: #fff; border: 1px solid #E4E0D3; border-radius: 8px; padding: 10px; margin-top: 8px; }
-    .computed { font-size: 12px; color: #5B7C99; font-weight: 600; margin-top: 2px; }
+    .whole-box { background: #FFFFFF; border: 1px solid #E4E0D3; border-radius: 8px; padding: 10px; margin-top: 8px; }
+    .computed { font-size: 12px; color: #5A62E5; font-weight: 600; margin-top: 2px; }
     .check-row { font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     .check-row input { flex: none; min-width: 0; }
-    .food-main { flex: 1 1 260px; min-width: 0; }
-    .food-title { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
-    .food-cal { font-weight: 600; color: #5B7C99; }
-    .food-whole { font-size: 12px; color: #4A453C; margin-top: 2px; }
-    .food-notes { font-size: 12px; color: #6B6457; font-style: italic; margin-top: 3px; white-space: pre-wrap; }
-    .edit-panel { flex-basis: 100%; }
+    .edit-panel { padding: 8px 0; }
+
+    table.foods-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 14px; background: transparent; border-radius: 8px; }
+    table.foods-table th { text-align: left; font-size: 13px; font-weight: 500; color: #6D6C6D; padding: 12px 10px; border-bottom: 1px solid #DCE4F7; background: transparent; }
+    table.foods-table td { padding: 12px 10px; border-bottom: 1px solid #DCE4F7; vertical-align: middle; color: #3B3C45; background: transparent; }
+    table.foods-table th:nth-child(1), table.foods-table td:nth-child(1) { width: 30%; }
+    table.foods-table th:nth-child(2), table.foods-table td:nth-child(2) { width: 14%; }
+    table.foods-table th:nth-child(3), table.foods-table td:nth-child(3) { width: 20%; }
+    table.foods-table th:nth-child(4), table.foods-table td:nth-child(4) { width: 20%; }
+    table.foods-table th:nth-child(5), table.foods-table td:nth-child(5) { width: 16%; }
+    table.foods-table th.actions, table.foods-table td.actions { text-align: right; white-space: nowrap; }
+    table.foods-table td.num { font-variant-numeric: tabular-nums; color: #3B3C45; }
+    .category-row td { text-align: center; font-size: 17px; font-weight: 500; color: #111111; text-transform: capitalize; padding: 14px 10px; background: transparent; border-bottom: 1px solid #DCE4F7; }
+    .food-row { display: table-row; }
+    .food-row:hover td { background: #F2F1FB; }
+    .food-name { color: #5A62E5; font-weight: 500; }
+    .food-whole { font-size: 12px; color: #6D6C6D; margin-top: 2px; }
+    .food-notes { font-size: 12px; color: #6D6C6D; font-style: italic; margin-top: 3px; white-space: pre-wrap; }
+    .edit-row td { background: transparent; }
+    .category-select { font-size: 12px; padding: 4px 6px; min-width: auto; border-radius: 6px; border: 1px solid #DCDDF5; }
   </style>
 </head>
 <body>
@@ -223,32 +229,31 @@
     }
 
     function foodRowHtml(f) {
-      const macros = [f.protein_per_serving, f.carbs_per_serving, f.fat_per_serving].some((x) => x > 0)
-        ? `<span class="food-macros">Protein ${f.protein_per_serving}g &middot; Carbs ${f.carbs_per_serving}g &middot; Fat ${f.fat_per_serving}g per serving</span>` : '';
-      const micros = (f.calcium_mg_per_100g || f.vitamin_c_mg_per_100g || f.omega3_g_per_100g)
-        ? `<div class="food-micros">Per 100${esc(f.serving_unit)}: Calcium ${f.calcium_mg_per_100g}mg &middot; Vitamin C ${f.vitamin_c_mg_per_100g}mg &middot; Omega-3 ${f.omega3_g_per_100g}g</div>` : '';
+      const hasMacros = [f.protein_per_serving, f.carbs_per_serving, f.fat_per_serving].some((x) => x > 0);
+      const macros = hasMacros
+        ? `P ${f.protein_per_serving}g &middot; C ${f.carbs_per_serving}g &middot; F ${f.fat_per_serving}g`
+        : '&mdash;';
       const whole = f.whole_calories != null
         ? `<div class="food-whole">Whole ${esc(f.whole_label || 'item')}: ${num(f.whole_calories)} kcal &middot; ${esc(amount(f.servings_per_whole, f.serving_unit))}</div>` : '';
       const notes = f.notes ? `<div class="food-notes">${esc(f.notes)}</div>` : '';
-      return `
-        <div class="food-row">
-          <div class="food-main">
-            <div class="food-title">
-              <span class="food-name">${esc(f.name)}</span>
-              <span class="food-cal">${num(f.serving_calories)} kcal per ${esc(amount(f.serving_size, f.serving_unit))}</span>
-            </div>
-            ${whole}${macros}${micros}${notes}
-          </div>
-          <div class="food-actions">
-            <select class="category-select" onchange="updateCategory(${f.id}, this.value)">
-              ${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}
-            </select>
+      const categorySelect = `
+        <select class="category-select" onchange="updateCategory(${f.id}, this.value)">
+          ${CATEGORY_ORDER.map((c) => `<option value="${c}" ${c === f.meal_category ? 'selected' : ''}>${c}</option>`).join('')}
+        </select>`;
+      const row = `
+        <tr class="food-row">
+          <td><span class="food-name">${esc(f.name)}</span>${whole}${notes}</td>
+          <td>${categorySelect}</td>
+          <td class="num">${num(f.serving_calories)} kcal per ${esc(amount(f.serving_size, f.serving_unit))}</td>
+          <td class="num">${macros}</td>
+          <td class="actions">
             <button class="small" onclick="openEdit(${f.id})">Edit</button>
             <button class="danger" onclick="removeFood(${f.id})">Remove</button>
-          </div>
-          ${editingId === f.id ? `<div class="edit-panel">${foodFormHtml('edit', f)}</div>` : ''}
-        </div>
-      `;
+          </td>
+        </tr>`;
+      const edit = editingId === f.id
+        ? `<tr class="edit-row"><td colspan="5"><div class="edit-panel">${foodFormHtml('edit', f)}</div></td></tr>` : '';
+      return row + edit;
     }
 
     function renderFoods() {
@@ -264,16 +269,19 @@
         return;
       }
 
-      let html = '';
+      let body = '';
       CATEGORY_ORDER.forEach((category) => {
         const inCategory = filtered.filter((f) => f.meal_category === category);
         if (inCategory.length === 0) return;
-        html += `<div class="category-group"><div class="category-title">${esc(category)}</div>`;
-        inCategory.forEach((f) => { html += foodRowHtml(f); });
-        html += '</div>';
+        body += `<tr class="category-row"><td colspan="5">${esc(category)}</td></tr>`;
+        inCategory.forEach((f) => { body += foodRowHtml(f); });
       });
 
-      list.innerHTML = html;
+      list.innerHTML = `
+        <table class="foods-table">
+          <thead><tr><th>Food</th><th>Category</th><th>Per serving</th><th>Macros</th><th class="actions">Actions</th></tr></thead>
+          <tbody>${body}</tbody>
+        </table>`;
       if (editingId !== null) updateComputed('edit');
     }
 
