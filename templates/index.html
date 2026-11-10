@@ -121,12 +121,12 @@
           <option value="nigeria">Nigeria</option>
           <option value="us">United States</option>
         </select>
-        <input type="hidden" id="days" value="5" />
+        <input type="hidden" id="days" value="7" />
       </div>
       <div class="form-row">
         <input type="number" id="calorieOverride" placeholder="Override calories (optional)" style="flex:1;" />
       </div>
-      <p style="font-size:12px;color:#999;margin-top:-6px;">Plans always run Monday through Friday. Leave the calorie field blank to use the calculated target, or fill it in to set your own.</p>
+      <p style="font-size:12px;color:#999;margin-top:-6px;">Plans always run Monday through Sunday. Leave the calorie field blank to use the calculated target, or fill it in to set your own.</p>
       <button onclick="generatePlan()">Generate plan</button>
     </div>
 
@@ -146,8 +146,8 @@
     }
 
     const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'snack'];
-    const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
-    const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F'];
+    const WEEKDAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const WEEKDAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     let myFoods = [];
     let currentPlan = [];
     let cleanViewOpen = false;
@@ -158,8 +158,8 @@
     }
 
     function weekdayLabel(dayIndex) {
-      // Fixed Monday-Friday, not relative to today's real date - the
-      // plan is always a standard 5-day workweek timetable.
+      // Fixed Monday-Sunday, not relative to today's real date - the
+      // plan is always a standard 7-day week timetable.
       return WEEKDAY_NAMES[dayIndex - 1] || `Day ${dayIndex}`;
     }
 
