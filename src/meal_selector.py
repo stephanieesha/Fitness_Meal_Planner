@@ -1,7 +1,10 @@
 """
-Selects meals from a regional database to build a day or week of meals
-approximating a calorie/macro target, with portions scaled to hit that
-target and variety tracking so the same meal doesn't repeat every day.
+Selects meals to build a day or week of meals approximating a calorie/macro
+target, with portions scaled to hit that target and variety tracking so the
+same meal doesn't repeat every day.
+
+Meals come either from a regional database (build_week_plan) or from the
+user's own food library (build_week_plan_from_foods).
 """
 
 import json
@@ -21,6 +24,8 @@ MEAL_SLOT_SPLIT_WITH_SNACK = {
     "dinner": 0.33,
     "snack": 0.15,
 }
+
+DEFAULT_MEAL_TYPES = ("breakfast", "lunch", "dinner")
 
 
 def load_meals(region: str) -> list:
@@ -57,7 +62,7 @@ def scale_meal_to_target(meal: dict, target_calories: float) -> dict:
     }
 
 
-def build_day_plan(meals: list, calorie_target: float, meal_types: tuple = ("breakfast", "lunch", "dinner"),
+def build_day_plan(meals: list, calorie_target: float, meal_types: tuple = DEFAULT_MEAL_TYPES,
                      used_names: dict = None) -> dict:
     if used_names is None:
         used_names = {mt: set() for mt in meal_types}
@@ -82,9 +87,7 @@ def build_day_plan(meals: list, calorie_target: float, meal_types: tuple = ("bre
     return {"meals": day_meals, "totals": day_totals}
 
 
-def build_week_plan(region: str, calorie_target: float, days: int = 7,
-                      meal_types: tuple = ("breakfast", "lunch", "dinner")) -> list:
-    meals = load_meals(region)
+def _build_week(meals: list, calorie_target: float, days: int, meal_types: tuple) -> list:
     used_names = {mt: set() for mt in meal_types}
 
     plan = []
@@ -99,3 +102,41 @@ def build_week_plan(region: str, calorie_target: float, days: int = 7,
         plan.append(day_plan)
 
     return plan
+
+
+def build_week_plan(region: str, calorie_target: float, days: int = 7,
+                      meal_types: tuple = DEFAULT_MEAL_TYPES) -> list:
+    return _build_week(load_meals(region), calorie_target, days, meal_types)
+
+
+def foods_as_meals(foods: list) -> list:
+    """Turn the user's food library rows into the same shape as regional meals."""
+    meals = []
+    for food in foods:
+        if not food.get("serving_calories"):
+            continue
+        meals.append({
+            "name": food["name"],
+            "meal_type": food["meal_category"],
+            "serving_desc": f"{food['serving_size']:g} {food['serving_unit']}",
+            "calories": food["serving_calories"],
+            "protein_g": food.get("protein_per_serving") or 0,
+            "carbs_g": food.get("carbs_per_serving") or 0,
+            "fat_g": food.get("fat_per_serving") or 0,
+        })
+    return meals
+
+
+def build_week_plan_from_foods(foods: list, calorie_target: float, days: int = 7,
+                                 meal_types: tuple = DEFAULT_MEAL_TYPES) -> list:
+    meals = foods_as_meals(foods)
+    for meal_type in meal_types:
+        if not any(m["meal_type"] == meal_type for m in meals):
+            raise ValueError(f"Add at least one {meal_type} food to My Foods before generating a plan")
+    return _build_week(meals, calorie_target, days, meal_types)
+
+
+def library_covers(foods: list, meal_types: tuple) -> bool:
+    """True when the user's library has at least one usable food for every meal type."""
+    categories = {f["meal_category"] for f in foods if f.get("serving_calories")}
+    return all(meal_type in categories for meal_type in meal_types)

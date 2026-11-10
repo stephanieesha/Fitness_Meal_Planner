@@ -1,12 +1,3 @@
-"""
-Meal Planner web app, now with accounts. Every generated plan is saved
-against the logged-in user's target history - the foundation Phase 3's
-dashboard (weight trend, target history) will read from.
-
-Run with: python src/app.py
-Then open: http://localhost:5040
-"""
-
 import os
 import sys
 from datetime import datetime
@@ -34,7 +25,7 @@ from auth import (
     EmailAlreadyExists, InvalidCredentials,
 )
 from nutrition import build_profile_targets
-from meal_selector import build_week_plan
+from meal_selector import build_week_plan, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers, build_week_plan_from_foods, library_covers
 from ai_enrichment import generate_plan_summary, _default_summary
 from food_library import (
     add_food, get_foods, get_food, delete_food, update_food_category, update_food, nutrition_for,
@@ -215,10 +206,22 @@ def generate_plan():
         calorie_override=calorie_override,
     )
 
-    week_plan = build_week_plan(
-        data["region"], profile_targets["calorie_target"], days=days,
-        meal_types=("breakfast", "lunch", "dinner", "snack"),
-    )
+    meal_types = ("breakfast", "lunch", "dinner", "snack")
+    foods_conn = get_connection()
+    try:
+        user_foods = get_foods(foods_conn, int(current_user.id))
+    finally:
+        foods_conn.close()
+    # Plans draw from the user's own foods once the library covers every meal
+    # type; until then (e.g. a brand-new account) the regional database is used.
+    if library_covers(user_foods, meal_types):
+        week_plan = build_week_plan_from_foods(
+            user_foods, profile_targets["calorie_target"], days=days, meal_types=meal_types,
+        )
+    else:
+        week_plan = build_week_plan(
+            data["region"], profile_targets["calorie_target"], days=days, meal_types=meal_types,
+        )
     conn = get_connection()
     try:
         if use_daily_allowance(conn, "summary", "DAILY_SUMMARY_LIMIT"):
