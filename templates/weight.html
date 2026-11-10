@@ -32,6 +32,31 @@
     table.weight-table td { padding: 8px 10px; border-bottom: 1px solid #E4E0D3; }
     .empty-state { color: #6B7A87; font-size: 13px; text-align: center; padding: 20px 0; }
     .del-btn { background: transparent; color: #B3402F; border: none; cursor: pointer; font-size: 12px; padding: 2px 6px; }
+        body { background: #F0DEE6; color: #3B3C45; }
+    header { background: #FFFFFF; color: #303AD7; border-bottom: 1px solid #F0F1F0; }
+    header h1 { color: #303AD7; font-weight: 400; font-size: 24px; }
+    header nav a { color: #5A62E5 !important; }
+    .container { max-width: 1140px; margin: 24px auto; padding: 0 24px; }
+    .card { background: linear-gradient(160deg, #FFFFFF 0%, #E9EFFC 100%); border: 1px solid #DCE4F7; box-shadow: 0 1px 3px rgba(17, 17, 17, 0.06); border-radius: 10px; }
+    .card h2 { color: #303AD7; font-weight: 400; font-size: 20px; }
+    input, select { border: 1px solid #DCDDF5; background: #FFFFFF; color: #3B3C45; }
+    input::placeholder { color: #7F84CA; }
+    button { background: #7076EA; color: #FFFFFF; border-radius: 6px; font-weight: 500; }
+    button:hover { background: #5A62E5; }
+    button.secondary { background: #F2F1FB; color: #303AD7; }
+    button.range-btn { background: #FFFFFF; color: #303AD7; border: 1px solid #DCDDF5; }
+    button.range-btn:hover { background: #F2F1FB; }
+    button.range-btn.active { background: #7076EA; color: #FFFFFF; border-color: #7076EA; }
+    .current-box { background: #FFFFFF; border: 1px solid #DCE4F7; border-radius: 8px; }
+    .current-box .value { color: #303AD7; }
+    .current-box .label { color: #6D6C6D; }
+    .chart-wrap { background: #FFFFFF; border: 1px solid #DCE4F7; border-radius: 8px; }
+    table.weight-table th { background: transparent; color: #6D6C6D; font-weight: 500; border-bottom: 1px solid #DCE4F7; }
+    table.weight-table td { border-bottom: 1px solid #DCE4F7; color: #3B3C45; }
+    table.weight-table tr:hover td { background: #F2F1FB; }
+    .empty-state { color: #6D6C6D; }
+    .del-btn { background: transparent; color: #C0392B; }
+    .del-btn:hover { background: transparent; color: #922B21; }
   </style>
 </head>
 <body>
@@ -166,8 +191,8 @@
           datasets: [{
             label: 'Weight (kg)',
             data: filtered.map((e) => e.weight_kg),
-            borderColor: '#5B7C99',
-            backgroundColor: 'rgba(91,124,153,0.15)',
+            borderColor: '#5A62E5',
+            backgroundColor: 'rgba(90,98,229,0.15)',
             tension: 0.25,
             fill: true,
             pointRadius: 3,
