@@ -181,7 +181,6 @@
     function renderChart() {
       const canvas = document.getElementById('weightChart');
       const filtered = filterByRange(history, currentRange);
-      setRange(currentRange); // keep the active button styled correctly on re-render
 
       if (chart) chart.destroy();
       chart = new Chart(canvas, {

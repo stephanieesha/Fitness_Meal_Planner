@@ -65,7 +65,6 @@ def run_weight_page(entries: list) -> dict:
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="runs the page script with Node.js")
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="reproduces the empty weight history until M2 fixes the page")
 def test_weight_history_shows_the_logged_entries():
     today = date.today()
     entries = [
