@@ -105,6 +105,15 @@
     }
     document.getElementById('dateInput').value = todayStr();
 
+    // Entries can arrive in any order, so every view sorts them itself.
+    function newestFirst(entries) {
+      return [...entries].sort((a, b) => (a.logged_date < b.logged_date ? 1 : a.logged_date > b.logged_date ? -1 : 0));
+    }
+
+    function oldestFirst(entries) {
+      return newestFirst(entries).reverse();
+    }
+
     async function loadHistory() {
       const res = await fetch('/api/weight');
       history = await res.json();
@@ -152,7 +161,7 @@
         box.innerHTML = '<div class="empty-state">No entries yet - log your first weight above.</div>';
         return;
       }
-      const latest = history[history.length - 1];
+      const latest = newestFirst(history)[0];
       box.innerHTML = `
         <div class="current-box">
           <div class="value">${latest.weight_kg} kg</div>
@@ -180,7 +189,7 @@
 
     function renderChart() {
       const canvas = document.getElementById('weightChart');
-      const filtered = filterByRange(history, currentRange);
+      const filtered = filterByRange(oldestFirst(history), currentRange);
 
       if (chart) chart.destroy();
       chart = new Chart(canvas, {
@@ -212,7 +221,7 @@
         container.innerHTML = '<div class="empty-state">Nothing logged yet.</div>';
         return;
       }
-      const rows = [...history].reverse().map((e) => `
+      const rows = newestFirst(history).map((e) => `
         <tr>
           <td>${e.logged_date}</td>
           <td>${e.weight_kg} kg</td>
