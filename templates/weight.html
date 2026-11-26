@@ -70,8 +70,8 @@
       <h2>Log today's weight</h2>
       <div id="logError"></div>
       <div class="form-row">
-        <input type="number" id="weightInput" placeholder="Weight (kg)" step="0.1" style="flex:1;min-width:120px;" />
-        <input type="date" id="dateInput" style="flex:1;min-width:150px;" />
+        <input type="number" id="weightInput" placeholder="Weight (kg)" step="0.1" min="20" max="500" style="flex:1;min-width:120px;" />
+        <input type="date" id="dateInput" min="1900-01-01" style="flex:1;min-width:150px;" />
         <button onclick="logWeight()">Save</button>
       </div>
     </div>
@@ -99,11 +99,23 @@
     let chart = null;
     let currentRange = 'month';
 
+    const MIN_WEIGHT_KG = 20;
+    const MAX_WEIGHT_KG = 500;
+    const EARLIEST_DATE = '1900-01-01';
+
+    function esc(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+
+    // Today's date where the person is, not the UTC date, which is already tomorrow in the evening in the Americas.
     function todayStr() {
       const d = new Date();
-      return d.toISOString().slice(0, 10);
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${d.getFullYear()}-${month}-${day}`;
     }
     document.getElementById('dateInput').value = todayStr();
+    document.getElementById('dateInput').max = todayStr();
 
     // Entries can arrive in any order, so every view sorts them itself.
     function newestFirst(entries) {
@@ -122,27 +134,47 @@
       renderHistoryTable();
     }
 
-    async function logWeight() {
-      const errorBox = document.getElementById('logError');
-      errorBox.innerHTML = '';
+    // Returns a message for the first problem found, or '' when the entry can be saved.
+    function checkEntry(weightText, dateText) {
+      if (!weightText || !dateText) return 'Enter both a weight and a date.';
+      const weight = Number(weightText);
+      if (!Number.isFinite(weight)) return 'Weight must be a number.';
+      if (weight < MIN_WEIGHT_KG || weight > MAX_WEIGHT_KG) {
+        return `Weight must be between ${MIN_WEIGHT_KG} and ${MAX_WEIGHT_KG} kg.`;
+      }
+      if (dateText < EARLIEST_DATE) return `Date must be ${EARLIEST_DATE} or later.`;
+      if (dateText > todayStr()) return 'Date cannot be in the future.';
+      return '';
+    }
 
+    function showError(message) {
+      document.getElementById('logError').innerHTML = message ? `<div class="error-box">${esc(message)}</div>` : '';
+    }
+
+    async function logWeight() {
       const weight_kg = document.getElementById('weightInput').value;
       const logged_date = document.getElementById('dateInput').value;
 
-      if (!weight_kg || !logged_date) {
-        errorBox.innerHTML = '<div class="error-box">Enter both a weight and a date.</div>';
+      const problem = checkEntry(weight_kg, logged_date);
+      showError(problem);
+      if (problem) return;
+
+      let res;
+      let data = {};
+      try {
+        res = await fetch('/api/weight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ weight_kg, logged_date }),
+        });
+        data = await res.json().catch(() => ({}));
+      } catch (err) {
+        showError('Could not reach the server. Try again.');
         return;
       }
 
-      const res = await fetch('/api/weight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ weight_kg, logged_date }),
-      });
-      const data = await res.json();
-
       if (!res.ok) {
-        errorBox.innerHTML = `<div class="error-box">${data.error || 'Could not save this entry.'}</div>`;
+        showError(data.error || 'Could not save this entry.');
         return;
       }
 

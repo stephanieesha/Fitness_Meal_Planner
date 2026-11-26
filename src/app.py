@@ -37,7 +37,10 @@ from plan_storage import save_plan, get_latest_plan, update_plan_meal, PlanMealN
 from apple_health_parser import parse_upload
 from activity_storage import save_activity_log, get_activity_log
 from screenshot_parser import extract_active_calories, ScreenshotParseError
-from weight_storage import save_weight_entry, get_weight_history, get_latest_weight, delete_weight_entry
+from weight_storage import (
+    save_weight_entry, get_weight_history, get_latest_weight, delete_weight_entry,
+    validate_weight_entry, InvalidWeightEntry,
+)
 import re
 
 ROOT = Path(__file__).parent.parent
@@ -580,26 +583,14 @@ def latest_weight():
 @app.route("/api/weight", methods=["POST"])
 @login_required
 def log_weight():
-    data = request.get_json() or {}
-    date_str = (data.get("logged_date") or "").strip()
-
-    if not re.match(r"^\d{4}-\d{2}-\d{2}$", date_str):
-        return jsonify({"error": "logged_date must be in YYYY-MM-DD format"}), 400
     try:
-        datetime.strptime(date_str, "%Y-%m-%d")
-    except ValueError:
-        return jsonify({"error": "logged_date must be a real calendar date"}), 400
-
-    try:
-        weight_kg = float(data.get("weight_kg"))
-    except (TypeError, ValueError):
-        return jsonify({"error": "weight_kg must be a number"}), 400
-    if not (20 <= weight_kg <= 500):
-        return jsonify({"error": "weight_kg must be a realistic value (20-500)"}), 400
+        weight_kg, logged_date = validate_weight_entry(request.get_json(silent=True))
+    except InvalidWeightEntry as e:
+        return jsonify({"error": str(e)}), 400
 
     conn = get_connection()
     try:
-        entry = save_weight_entry(conn, int(current_user.id), weight_kg, date_str)
+        entry = save_weight_entry(conn, int(current_user.id), weight_kg, logged_date)
         return jsonify(entry), 201
     finally:
         conn.close()
